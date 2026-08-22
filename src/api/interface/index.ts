@@ -36,12 +36,36 @@ export namespace Login {
     username: string;
     password: string;
   }
+  export interface TokenResponse {
+    accessToken: string;
+    tokenType: string;
+    expiresIn: number;
+  }
+  export interface CsrfResponse {
+    headerName: string;
+    parameterName: string;
+    token: string;
+  }
   export interface ResLogin {
     access_token: string;
   }
   export interface ResAuthButtons {
     [key: string]: string[];
   }
+}
+
+export interface ApiFieldError {
+  field: string;
+  message: string;
+}
+
+export interface ApiErrorResponse {
+  timestamp: string;
+  status: number;
+  code: string;
+  message: string;
+  path: string;
+  fieldErrors: ApiFieldError[];
 }
 
 // 用户管理模块

@@ -19,7 +19,7 @@ onMounted(() => {
 });
 
 const handleFullScreen = () => {
-  if (!screenfull.isEnabled) ElMessage.warning("当前您的浏览器不支持全屏 ❌");
+  if (!screenfull.isEnabled) ElMessage.warning("目前您的瀏覽器不支援全螢幕 ❌");
   screenfull.toggle();
 };
 </script>

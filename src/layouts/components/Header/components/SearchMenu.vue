@@ -5,7 +5,7 @@
       <el-input
         ref="menuInputRef"
         v-model="searchMenu"
-        placeholder="菜单搜索：支持菜单名称、路径"
+        placeholder="選單搜尋：支援選單名稱、路徑"
         size="large"
         clearable
         :prefix-icon="Search"
@@ -27,7 +27,7 @@
           <i :class="'iconfont icon-huiche'" class="menu-enter" @click="handleOpen"></i>
         </div>
       </div>
-      <el-empty v-else class="mt20 mb20" :image-size="100" description="暂无菜单" />
+      <el-empty v-else class="mt20 mb20" :image-size="100" description="暫無選單" />
     </el-dialog>
   </div>
 </template>

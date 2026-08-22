@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import { readFileSync } from "fs";
 import { resolve } from "path";
 import { ConfigEnv, defineConfig, loadEnv, UserConfig } from "vite";
 
@@ -14,10 +15,32 @@ const __APP_INFO__ = {
 };
 
 // @see: https://vitejs.dev/config/
-export default defineConfig(({ mode }: ConfigEnv): UserConfig => {
+export default defineConfig(({ mode, command }: ConfigEnv): UserConfig => {
   const root = process.cwd();
-  const env = loadEnv(mode, root);
+  // Load non-VITE_ variables as well; HTTPS certificate paths must stay in the
+  // Node/Vite config and must never be exposed to the client bundle.
+  const env = loadEnv(mode, root, "");
   const viteEnv = wrapperEnv(env);
+  // Keep certificate paths outside the client bundle while allowing local
+  // development to load them from the ignored `.env.development.local` file.
+  // Explicit process environment variables take precedence for CI/manual runs.
+  const localHttpsCertPath = process.env.LOCAL_HTTPS_CERT_PATH ?? env.LOCAL_HTTPS_CERT_PATH;
+  const localHttpsKeyPath = process.env.LOCAL_HTTPS_KEY_PATH ?? env.LOCAL_HTTPS_KEY_PATH;
+  const isDevelopmentServer = command === "serve" && mode === "development";
+
+  if (isDevelopmentServer && (!localHttpsCertPath || !localHttpsKeyPath)) {
+    throw new Error(
+      "Local HTTPS requires LOCAL_HTTPS_CERT_PATH and LOCAL_HTTPS_KEY_PATH to point to PEM files outside the repository."
+    );
+  }
+
+  const localHttps =
+    localHttpsCertPath && localHttpsKeyPath
+      ? {
+          cert: readFileSync(localHttpsCertPath),
+          key: readFileSync(localHttpsKeyPath)
+        }
+      : undefined;
 
   return {
     base: viteEnv.VITE_PUBLIC_PATH,
@@ -39,10 +62,12 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => {
       }
     },
     server: {
-      host: "0.0.0.0",
+      host: "localhost",
       port: viteEnv.VITE_PORT,
+      strictPort: true,
       open: viteEnv.VITE_OPEN,
       cors: true,
+      https: localHttps,
       // Load proxy configuration from .env.development
       proxy: createProxy(viteEnv.VITE_PROXY)
     },

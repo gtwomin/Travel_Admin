@@ -8,7 +8,22 @@ export const useAuthStore = defineStore("geeker-auth", () => {
   // 按钮权限列表
   const authButtonList = ref<{ [key: string]: string[] }>({});
   // 菜单权限列表
-  const authMenuList = ref<Menu.MenuOptions[]>([]);
+  const authMenuList = ref<Menu.MenuOptions[]>([
+    {
+      path: "/home/index",
+      name: "home",
+      component: "/home/index",
+      meta: {
+        icon: "HomeFilled",
+        title: "首页",
+        isLink: "",
+        isHide: false,
+        isFull: false,
+        isAffix: true,
+        isKeepAlive: true
+      }
+    }
+  ]);
   // 当前页面的 router name，用来做按钮权限筛选
   const routeName = ref<string>("");
 

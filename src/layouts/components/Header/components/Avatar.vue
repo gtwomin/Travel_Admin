@@ -40,20 +40,20 @@ const userStore = useUserStore();
 
 // 退出登录
 const logout = () => {
-  ElMessageBox.confirm("您是否确认退出登录?", "温馨提示", {
-    confirmButtonText: "确定",
+  ElMessageBox.confirm("您是否確認退出登入?", "溫馨提示", {
+    confirmButtonText: "確定",
     cancelButtonText: "取消",
     type: "warning"
   }).then(async () => {
-    // 1.执行退出登录接口
-    await logoutApi();
-
-    // 2.清除 Token
-    userStore.setToken("");
-
-    // 3.重定向到登陆页
-    router.replace(LOGIN_URL);
-    ElMessage.success("退出登录成功！");
+    try {
+      await logoutApi();
+      ElMessage.success("登出成功！");
+    } catch {
+      ElMessage.warning("後端登出未完成，已清除本機登入狀態！");
+    } finally {
+      userStore.setToken("");
+      router.replace(LOGIN_URL);
+    }
   });
 };
 
