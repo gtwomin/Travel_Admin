@@ -1,53 +1,72 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 
-import { getAuthButtonListApi, getAuthMenuListApi } from "@/api/modules/login";
+import { getAdminSessionApi } from "@/api/modules/login";
+import { Login } from "@/api/interface";
 import { getAllBreadcrumbList, getFlatMenuList, getShowMenuList } from "@/utils";
 
 export const useAuthStore = defineStore("geeker-auth", () => {
-  // 按钮权限列表
-  const authButtonList = ref<{ [key: string]: string[] }>({});
-  // 菜单权限列表
-  const authMenuList = ref<Menu.MenuOptions[]>([
-    {
-      path: "/home/index",
-      name: "home",
-      component: "/home/index",
-      meta: {
-        icon: "HomeFilled",
-        title: "首页",
-        isLink: "",
-        isHide: false,
-        isFull: false,
-        isAffix: true,
-        isKeepAlive: true
-      }
+  const homeMenu: Menu.MenuOptions = {
+    path: "/home/index",
+    name: "home",
+    component: "/home/index",
+    meta: {
+      icon: "HomeFilled",
+      title: "首頁",
+      isLink: "",
+      isHide: false,
+      isFull: false,
+      isAffix: true,
+      isKeepAlive: true
     }
-  ]);
-  // 当前页面的 router name，用来做按钮权限筛选
+  };
+  // 按鈕權限列表
+  const authButtonList = ref<{ [key: string]: string[] }>({});
+  const session = ref<Login.AdminSessionResponse | null>(null);
+  const permissions = ref<string[]>([]);
+  const initialized = ref(false);
+  // 選單權限列表
+  const authMenuList = ref<Menu.MenuOptions[]>([homeMenu]);
+  // 目前頁面的 router name，用於按鈕權限篩選
   const routeName = ref<string>("");
 
-  // 按钮权限列表
+  // 按鈕權限列表
   const authButtonListGet = computed(() => authButtonList.value);
-  // 菜单权限列表 ==> 这里的菜单没有经过任何处理
+  const permissionsGet = computed(() => permissions.value);
+  // 選單權限列表 ==> 此處的選單尚未經過任何處理
   const authMenuListGet = computed(() => authMenuList.value);
-  // 菜单权限列表 ==> 左侧菜单栏渲染，需要剔除 isHide == true
+  // 選單權限列表 ==> 左側選單渲染，需要移除 isHide == true 的選單
   const showMenuListGet = computed(() => getShowMenuList(authMenuList.value));
-  // 菜单权限列表 ==> 扁平化之后的一维数组菜单，主要用来添加动态路由
+  // 選單權限列表 ==> 扁平化後的一維選單，主要用來新增動態路由
   const flatMenuListGet = computed(() => getFlatMenuList(authMenuList.value));
-  // 递归处理后的所有面包屑导航列表
+  // 遞迴處理後的所有麵包屑導覽列表
   const breadcrumbListGet = computed(() => getAllBreadcrumbList(authMenuList.value));
 
-  // Get AuthButtonList
-  const getAuthButtonList = async () => {
-    const { data } = await getAuthButtonListApi();
-    authButtonList.value = data;
+  const hasPermission = (permission?: string) => !permission || permissions.value.includes(permission);
+
+  const setSession = (newSession: Login.AdminSessionResponse) => {
+    session.value = newSession;
+    permissions.value = [...new Set(newSession.permissions)].sort();
+    authButtonList.value = { "*": permissions.value };
+    initialized.value = true;
   };
 
-  // Get AuthMenuList
-  const getAuthMenuList = async () => {
-    const { data } = await getAuthMenuListApi();
-    authMenuList.value = data;
+  const syncSession = async () => {
+    const currentSession = await getAdminSessionApi();
+    setSession(currentSession);
+    return currentSession;
+  };
+
+  const setMenuList = (menus: Menu.MenuOptions[]) => {
+    authMenuList.value = menus;
+  };
+
+  const clearAuth = () => {
+    session.value = null;
+    permissions.value = [];
+    authButtonList.value = {};
+    initialized.value = false;
+    authMenuList.value = [homeMenu];
   };
 
   // Set RouteName
@@ -57,15 +76,22 @@ export const useAuthStore = defineStore("geeker-auth", () => {
 
   return {
     authButtonList,
+    session,
+    permissions,
+    initialized,
     authMenuList,
     routeName,
     authButtonListGet,
+    permissionsGet,
     authMenuListGet,
     showMenuListGet,
     flatMenuListGet,
     breadcrumbListGet,
-    getAuthButtonList,
-    getAuthMenuList,
+    hasPermission,
+    syncSession,
+    setSession,
+    setMenuList,
+    clearAuth,
     setRouteName
   };
 });

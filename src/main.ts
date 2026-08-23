@@ -2,8 +2,6 @@ import { createApp } from "vue";
 
 // iconfont css
 import "@/assets/iconfont/iconfont.scss";
-// font css
-import "@/assets/fonts/font.scss";
 // element css
 import "element-plus/dist/index.css";
 // element dark css

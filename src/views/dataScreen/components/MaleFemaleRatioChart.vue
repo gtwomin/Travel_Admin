@@ -79,7 +79,7 @@ const option: ECOption = {
           a: {
             color: "transparent",
             lineHeight: 30,
-            fontFamily: "digital",
+            fontFamily: 'Inter, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Segoe UI", Arial, sans-serif',
             fontSize: 12
           }
         }

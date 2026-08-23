@@ -1,9 +1,27 @@
 import http from "@/api";
 import { PORT1 } from "@/api/config/servicePort";
-import { ResPage, User } from "@/api/interface/index";
+import { AdminUser, ResPage, User } from "@/api/interface/index";
+
+export const getAdminUserPage = (params: AdminUser.AdminUserPageParams) => {
+  return http
+    .getDirect<AdminUser.AdminUserPageResponse>("/api/v1/admin/users", params, { loading: false })
+    .then(data => ({ data }));
+};
+
+export const getAdminUserDetail = (userId: string) => {
+  return http.getDirect<AdminUser.AdminUserResponse>(`/api/v1/admin/users/${userId}`, undefined, { loading: false });
+};
+
+export const updateAdminUserStatus = (userId: string, status: number) => {
+  return http.patchDirect<AdminUser.AdminUserResponse>(
+    `/api/v1/admin/users/${userId}/status`,
+    { status },
+    { loading: false }
+  );
+};
 
 /**
- * @description 获取用户列表
+ * @description 取得使用者列表
  * @param params User.ReqUserParams
  * @returns Promise<ResPage<User.ResUserList>>
  */
@@ -12,7 +30,7 @@ export const getUserList = (params: User.ReqUserParams) => {
 };
 
 /**
- * @description 获取树形用户列表
+ * @description 取得樹狀使用者列表
  * @param params User.ReqUserParams
  * @returns Promise<ResPage<User.ResUserList>>
  */
@@ -21,7 +39,7 @@ export const getUserTreeList = (params: User.ReqUserParams) => {
 };
 
 /**
- * @description 新增用户
+ * @description 新增使用者
  * @param params { id: string }
  * @returns Promise<void>
  */
@@ -30,7 +48,7 @@ export const addUser = (params: { id: string }) => {
 };
 
 /**
- * @description 批量添加用户
+ * @description 批次新增使用者
  * @param params FormData
  * @returns Promise<void>
  */
@@ -39,7 +57,7 @@ export const batchAddUser = (params: FormData) => {
 };
 
 /**
- * @description 编辑用户
+ * @description 編輯使用者
  * @param params { id: string }
  * @returns Promise<void>
  */
@@ -48,7 +66,7 @@ export const editUser = (params: { id: string }) => {
 };
 
 /**
- * @description 删除用户
+ * @description 刪除使用者
  * @param params { id: string[] }
  * @returns Promise<void>
  */
@@ -57,7 +75,7 @@ export const deleteUser = (params: { id: string[] }) => {
 };
 
 /**
- * @description 切换用户状态
+ * @description 切換使用者狀態
  * @param params { id: string; status: number }
  * @returns Promise<void>
  */
@@ -66,7 +84,7 @@ export const changeUserStatus = (params: { id: string; status: number }) => {
 };
 
 /**
- * @description 重置用户密码
+ * @description 重設使用者密碼
  * @param params { id: string }
  * @returns Promise<void>
  */
@@ -75,7 +93,7 @@ export const resetUserPassWord = (params: { id: string }) => {
 };
 
 /**
- * @description 导出用户数据
+ * @description 匯出使用者資料
  * @param params User.ReqUserParams
  * @returns Promise<void>
  */
@@ -84,7 +102,7 @@ export const exportUserInfo = (params: User.ReqUserParams) => {
 };
 
 /**
- * @description 获取用户状态字典
+ * @description 取得使用者狀態字典
  * @returns Promise<User.ResStatus[]>
  */
 export const getUserStatus = () => {
@@ -92,7 +110,7 @@ export const getUserStatus = () => {
 };
 
 /**
- * @description 获取用户性别字典
+ * @description 取得使用者性別字典
  * @returns Promise<User.ResGender[]>
  */
 export const getUserGender = () => {
@@ -100,7 +118,7 @@ export const getUserGender = () => {
 };
 
 /**
- * @description 获取用户部门列表
+ * @description 取得使用者部門列表
  * @returns Promise<User.ResDepartment[]>
  */
 export const getUserDepartment = () => {
@@ -108,7 +126,7 @@ export const getUserDepartment = () => {
 };
 
 /**
- * @description 获取用户角色字典
+ * @description 取得使用者角色字典
  * @returns Promise<User.ResRole[]>
  */
 export const getUserRole = () => {

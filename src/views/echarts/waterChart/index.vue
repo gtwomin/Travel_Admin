@@ -18,20 +18,20 @@ const option = {
       textStyle: {
         color: "#a1a1a1",
         fontSize: 16,
-        fontFamily: "Microsoft Yahei",
+        fontFamily: 'Inter, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Segoe UI", Arial, sans-serif',
         fontWeight: "100",
         textAlign: "center"
       }
     },
     {
-      text: "实时客流量",
+      text: "即時客流量",
       x: "75%",
       y: 30,
       textAlign: "center",
       textStyle: {
         color: "#a1a1a1",
         fontSize: 16,
-        fontFamily: "Microsoft Yahei",
+        fontFamily: 'Inter, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Segoe UI", Arial, sans-serif',
         fontWeight: "100",
         textAlign: "center"
       }

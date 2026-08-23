@@ -1,5 +1,5 @@
 <template>
-  <!-- 实时访问 -->
+<!-- 即時存取 -->
   <div class="actual-total">
     <div class="expect-total">可预约总量<i>999999</i>人</div>
     <div class="actual-total">
@@ -197,7 +197,7 @@ const option = {
     width: 52px;
     height: 50px;
     margin-right: 1px;
-    font-family: MetroDF;
+    font-family: var(--app-font-family);
     font-size: 32px;
     color: #66ffff;
     background: url("../images/total.png") no-repeat;

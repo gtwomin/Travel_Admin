@@ -3,7 +3,7 @@
   border: 1px solid;
 }
 
-/* 当前页面最大化 css */
+/* 目前頁面最大化 CSS */
 .main-maximize {
   .aside-split,
   .el-aside,
@@ -31,7 +31,7 @@
   box-shadow: 0 0 12px rgb(0 0 0 / 5%);
 }
 
-/* ProTable 不需要 card 样式（在组件内使用 ProTable 会使用到） */
+/* ProTable 不需要 card 樣式（在元件內使用 ProTable 時會用到） */
 .no-card {
   .card {
     padding: 0;
@@ -46,7 +46,7 @@
   }
 }
 
-/* content-box (常用内容盒子) */
+/* content-box（常用內容盒） */
 .content-box {
   display: flex;
   flex-direction: column;
@@ -70,7 +70,7 @@
   }
 }
 
-/* main-box (树形表格 treeFilter 页面会使用，左右布局 flex) */
+/* main-box（樹狀表格 treeFilter 頁面會使用，左右配置） */
 .main-box {
   display: flex;
   width: 100%;
@@ -89,7 +89,7 @@
   width: 100%;
   height: 100%;
 
-  // table-search 表格搜索样式
+  // table-search 表格搜尋樣式
   .table-search {
     padding: 18px 18px 0;
     margin-bottom: 10px;
@@ -98,7 +98,7 @@
         width: 100%;
       }
 
-      // 去除时间选择器上下 padding
+    // 移除時間選擇器上下內距
       .el-range-editor.el-input__wrapper {
         padding: 0 10px;
       }
@@ -111,7 +111,7 @@
     }
   }
 
-  // 表格 header 样式
+  // 表格標頭樣式
   .table-header {
     .header-button-lf,
     .header-button-ri {
@@ -131,24 +131,33 @@
     }
   }
 
-  // el-table 表格样式
+  // el-table 表格樣式
   .el-table {
     flex: 1;
+    font-family: var(--app-font-family);
+    font-variant-numeric: tabular-nums;
 
-    // 修复 safari 浏览器表格错位 https://github.com/HalseySpicy/Geeker-Admin/issues/83
+    // 修正 Safari 表格錯位 https://github.com/HalseySpicy/Geeker-Admin/issues/83
     table {
       width: 100%;
     }
     .el-table__header th {
-      height: 45px;
-      font-size: 15px;
-      font-weight: bold;
-      color: var(--el-text-color-primary);
+      height: 44px;
+      padding: 0;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--el-text-color-secondary);
       background: var(--el-fill-color-light);
     }
     .el-table__row {
-      height: 45px;
+      height: 52px;
+      color: var(--el-text-color-regular);
       font-size: 14px;
+      line-height: 20px;
+      .el-table__cell {
+        padding: 12px 0;
+      }
       .move {
         cursor: move;
         .el-icon {
@@ -157,13 +166,20 @@
       }
     }
 
-    // 设置 el-table 中 header 文字不换行，并省略
+    // 設定 el-table 標頭文字不換行並省略
     .el-table__header .el-table__cell > .cell {
       // white-space: nowrap;
       white-space: wrap;
+      line-height: 20px;
     }
 
-    // 解决表格数据为空时样式不居中问题(仅在element-plus中)
+    .el-button,
+    .el-tag,
+    .el-switch {
+      font-family: inherit;
+    }
+
+    // 解決表格無資料時的置中問題（Element Plus 使用）
     .el-table__empty-block {
       position: absolute;
       .table-empty {
@@ -174,7 +190,7 @@
       }
     }
 
-    // table 中 image 图片样式
+    // 表格中的圖片樣式
     .table-image {
       width: 50px;
       height: 50px;
@@ -182,7 +198,7 @@
     }
   }
 
-  // 表格 pagination 样式
+  // 表格分頁樣式
   .el-pagination {
     display: flex;
     justify-content: flex-end;
@@ -190,7 +206,7 @@
   }
 }
 
-/* el-table 组件大小 */
+/* el-table 元件尺寸 */
 .el-table--small {
   .el-table__header th {
     height: 40px !important;
@@ -228,12 +244,12 @@
     border-top: 1px solid var(--el-border-color-lighter);
   }
 
-  // select 样式
+  // 選擇器樣式
   .el-select {
     width: 100%;
   }
 
-  // drawer-form 中存在两列 form-item 样式
+  // drawer-form 中包含兩欄的表單樣式
   .drawer-multiColumn-form {
     display: flex;
     flex-wrap: wrap;

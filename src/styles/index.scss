@@ -2,3 +2,25 @@
 @use "@/styles/common";
 @use "@/styles/element-dark";
 @use "@/styles/element";
+
+:root {
+  --app-font-family: Inter, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Segoe UI", Arial, sans-serif;
+  --el-font-family: var(--app-font-family);
+}
+
+html,
+body,
+#app,
+button,
+input,
+textarea,
+select {
+  font-family: var(--app-font-family);
+}
+
+body {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

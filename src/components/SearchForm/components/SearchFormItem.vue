@@ -81,11 +81,11 @@ const placeholder = computed(() => {
   if (["datetimerange", "daterange", "monthrange"].includes(search?.props?.type) || search?.props?.isRange) {
     return {
       rangeSeparator: search?.props?.rangeSeparator ?? "至",
-      startPlaceholder: search?.props?.startPlaceholder ?? "开始时间",
-      endPlaceholder: search?.props?.endPlaceholder ?? "结束时间"
+      startPlaceholder: search?.props?.startPlaceholder ?? "開始時間",
+      endPlaceholder: search?.props?.endPlaceholder ?? "結束時間"
     };
   }
-  const placeholder = search?.props?.placeholder ?? (search?.el?.includes("input") ? "请输入" : "请选择");
+  const placeholder = search?.props?.placeholder ?? (search?.el?.includes("input") ? "請輸入" : "請選擇");
   return { placeholder };
 });
 

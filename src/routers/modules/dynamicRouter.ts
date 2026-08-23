@@ -4,56 +4,139 @@ import { RouteRecordRaw } from "vue-router";
 import { LOGIN_URL } from "@/config";
 import router from "@/routers/index";
 import { useAuthStore } from "@/stores/modules/auth";
+import { useKeepAliveStore } from "@/stores/modules/keepAlive";
+import { useTabsStore } from "@/stores/modules/tabs";
 import { useUserStore } from "@/stores/modules/user";
+import mittBus from "@/utils/mittBus";
 
-// 引入 views 文件夹下所有 vue 文件
 const modules = import.meta.glob("@/views/**/*.vue");
 
-/**
- * @description 初始化动态路由
- */
-export const initDynamicRouter = async () => {
-  const userStore = useUserStore();
-  const authStore = useAuthStore();
+const DYNAMIC_ROUTE_CATALOG: Menu.MenuOptions[] = [
+  {
+    path: "/system",
+    name: "system",
+    redirect: "/system/accountManage",
+    meta: {
+      icon: "Tools",
+      title: "系統管理",
+      isHide: false,
+      isFull: false,
+      isAffix: false,
+      isKeepAlive: false
+    },
+    children: [
+      {
+        path: "/system/accountManage",
+        name: "accountManage",
+        component: "/system/accountManage/index",
+        meta: {
+          icon: "User",
+          title: "帳號管理",
+          isHide: false,
+          isFull: false,
+          isAffix: false,
+          isKeepAlive: true,
+          requiredPermission: "ADMIN_USER_LIST_READ"
+        }
+      }
+    ]
+  }
+];
 
-  try {
-    // 1.获取菜单列表 && 按钮权限列表
-    await authStore.getAuthMenuList();
-    await authStore.getAuthButtonList();
+const dynamicRouteNames = new Set<string>();
+let initPromise: Promise<void> | null = null;
 
-    // 2.判断当前用户有没有菜单权限
-    if (!authStore.authMenuListGet.length) {
+const filterRoute = (route: Menu.MenuOptions, hasPermission: (permission?: string) => boolean): Menu.MenuOptions | null => {
+  if (route.children?.length) {
+    const children = route.children
+      .map(child => filterRoute(child, hasPermission))
+      .filter((child): child is Menu.MenuOptions => Boolean(child));
+    return children.length ? { ...route, redirect: route.redirect || children[0].path, children } : null;
+  }
+  return hasPermission(route.meta.requiredPermission) ? { ...route } : null;
+};
+
+const removeDynamicRoutes = () => {
+  dynamicRouteNames.forEach(name => {
+    if (router.hasRoute(name)) router.removeRoute(name);
+  });
+  dynamicRouteNames.clear();
+};
+
+const resolveComponent = (route: Menu.MenuOptions): Menu.MenuOptions => ({
+  ...route,
+  component:
+    typeof route.component === "string" ? modules[`/src/views${route.component}.vue`] : route.component,
+  children: route.children?.map(resolveComponent)
+});
+
+export const isKnownPermissionPath = (path: string) =>
+  DYNAMIC_ROUTE_CATALOG.some(route => route.path === path || route.children?.some(child => child.path === path));
+
+export const initDynamicRouter = async (force = false) => {
+  if (initPromise) return initPromise;
+
+  initPromise = (async () => {
+    const authStore = useAuthStore();
+    const userStore = useUserStore();
+    await authStore.syncSession();
+    removeDynamicRoutes();
+
+    const dynamicMenus = DYNAMIC_ROUTE_CATALOG.map(route => filterRoute(route, authStore.hasPermission)).filter(
+      (route): route is Menu.MenuOptions => Boolean(route)
+    );
+    authStore.setMenuList([authStore.authMenuListGet[0], ...dynamicMenus]);
+
+    dynamicMenus.map(resolveComponent).forEach(route => {
+      router.addRoute("layout", route as unknown as RouteRecordRaw);
+      dynamicRouteNames.add(route.name);
+    });
+
+    if (!dynamicMenus.length) {
       ElNotification({
-        title: "无权限访问",
-        message: "当前账号无任何菜单权限，请联系系统管理员！",
-        type: "warning",
+        title: "目前無其他功能權限",
+        message: "目前帳號僅可使用首頁。",
+        type: "info",
         duration: 3000
       });
-      userStore.setToken("");
-      router.replace(LOGIN_URL);
-      return Promise.reject("No permission");
     }
 
-    // 3.添加动态路由
-    authStore.flatMenuListGet.forEach(item => {
-      if (item.children) {
-        delete item.children;
-      }
-
-      if (item.component && typeof item.component == "string") {
-        item.component = modules["/src/views" + item.component + ".vue"];
-      }
-
-      if (item.meta.isFull) {
-        router.addRoute(item as unknown as RouteRecordRaw);
-      } else {
-        router.addRoute("layout", item as unknown as RouteRecordRaw);
-      }
+    if (!userStore.token) router.replace(LOGIN_URL);
+  })()
+    .catch(error => {
+      useAuthStore().clearAuth();
+      throw error;
+    })
+    .finally(() => {
+      initPromise = null;
     });
-  } catch (error) {
-    // 当按钮 || 菜单请求出错时，重定向到登陆页
-    userStore.setToken("");
-    router.replace(LOGIN_URL);
-    return Promise.reject(error);
-  }
+
+  return initPromise;
 };
+
+mittBus.on("admin-token-refreshed", async () => {
+  if (!useUserStore().token) return;
+  await initDynamicRouter(true);
+  const authStore = useAuthStore();
+  const authorizedPaths = new Set(authStore.flatMenuListGet.map(item => item.path));
+  const tabsStore = useTabsStore();
+  const keepAliveStore = useKeepAliveStore();
+  tabsStore.setTabs(
+    tabsStore.tabsMenuList.filter(tab => {
+      const path = tab.path.split("?")[0];
+      return !isKnownPermissionPath(path) || authorizedPaths.has(path);
+    })
+  );
+  keepAliveStore.setKeepAliveName(
+    keepAliveStore.keepAliveName.filter(name => {
+      const path = name.split("?")[0];
+      return !isKnownPermissionPath(path) || authorizedPaths.has(path);
+    })
+  );
+  const currentPath = router.currentRoute.value.path;
+  if (isKnownPermissionPath(currentPath) && !authorizedPaths.has(currentPath)) {
+    await router.replace("/403");
+  }
+});
+
+export { removeDynamicRoutes };

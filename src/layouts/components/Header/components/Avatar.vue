@@ -30,6 +30,9 @@ import { useRouter } from "vue-router";
 
 import { logoutApi } from "@/api/modules/login";
 import { LOGIN_URL } from "@/config";
+import { resetRouter } from "@/routers";
+import { useKeepAliveStore } from "@/stores/modules/keepAlive";
+import { useTabsStore } from "@/stores/modules/tabs";
 import { useUserStore } from "@/stores/modules/user";
 
 import InfoDialog from "./InfoDialog.vue";
@@ -37,10 +40,12 @@ import PasswordDialog from "./PasswordDialog.vue";
 
 const router = useRouter();
 const userStore = useUserStore();
+const tabsStore = useTabsStore();
+const keepAliveStore = useKeepAliveStore();
 
-// 退出登录
+// 登出
 const logout = () => {
-  ElMessageBox.confirm("您是否確認退出登入?", "溫馨提示", {
+  ElMessageBox.confirm("您是否確認要登出？", "溫馨提示", {
     confirmButtonText: "確定",
     cancelButtonText: "取消",
     type: "warning"
@@ -52,12 +57,15 @@ const logout = () => {
       ElMessage.warning("後端登出未完成，已清除本機登入狀態！");
     } finally {
       userStore.setToken("");
+      resetRouter();
+      tabsStore.setTabs([]);
+      keepAliveStore.setKeepAliveName([]);
       router.replace(LOGIN_URL);
     }
   });
 };
 
-// 打开修改密码和个人信息弹窗
+// 開啟修改密碼與個人資料彈窗
 const infoRef = ref<InstanceType<typeof InfoDialog> | null>(null);
 const passwordRef = ref<InstanceType<typeof PasswordDialog> | null>(null);
 const openDialog = (ref: string) => {

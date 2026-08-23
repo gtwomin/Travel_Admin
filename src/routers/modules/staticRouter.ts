@@ -17,7 +17,7 @@ export const staticRouter: RouteRecordRaw[] = [
     name: "login",
     component: () => import("@/views/login/index.vue"),
     meta: {
-      title: "登录"
+      title: "登入"
     }
   },
   {
@@ -33,7 +33,7 @@ export const staticRouter: RouteRecordRaw[] = [
         component: () => import("@/views/home/index.vue"),
         meta: {
           icon: "HomeFilled",
-          title: "首页",
+          title: "首頁",
           isLink: "",
           isHide: false,
           isFull: false,
