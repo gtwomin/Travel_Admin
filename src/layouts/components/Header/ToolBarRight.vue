@@ -16,7 +16,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { useUserStore } from "@/stores/modules/user";
+import { useAuthStore } from "@/stores/modules/auth";
 
 import AssemblySize from "./components/AssemblySize.vue";
 import Avatar from "./components/Avatar.vue";
@@ -26,8 +26,10 @@ import Message from "./components/Message.vue";
 import SearchMenu from "./components/SearchMenu.vue";
 import ThemeSetting from "./components/ThemeSetting.vue";
 
-const userStore = useUserStore();
-const username = computed(() => userStore.userInfo.name);
+const authStore = useAuthStore();
+const username = computed(
+  () => authStore.profile?.nickname || authStore.profile?.username || authStore.session?.username || "Geeker"
+);
 </script>
 
 <style scoped lang="scss">

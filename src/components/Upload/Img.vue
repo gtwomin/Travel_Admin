@@ -19,7 +19,7 @@
         <div class="upload-handle" @click.stop>
           <div v-if="!self_disabled" class="handle-icon" @click="editImg">
             <el-icon><Edit /></el-icon>
-            <span>编辑</span>
+            <span>編輯</span>
           </div>
           <div class="handle-icon" @click="imgViewVisible = true">
             <el-icon><ZoomIn /></el-icon>
@@ -27,7 +27,7 @@
           </div>
           <div v-if="!self_disabled" class="handle-icon" @click="deleteImg">
             <el-icon><Delete /></el-icon>
-            <span>删除</span>
+            <span>刪除</span>
           </div>
         </div>
       </template>
@@ -68,7 +68,7 @@ interface UploadFileProps {
   borderRadius?: string; // 元件圓角 ==> 非必傳（預設為 8px）
 }
 
-// 接受父组件参数
+// 接受父元件參數
 const props = withDefaults(defineProps<UploadFileProps>(), {
   imageUrl: "",
   deferUpload: false,
@@ -99,7 +99,7 @@ const self_disabled = computed(() => {
 
 /**
  * @description 圖片上傳
- * @param options upload 設定
+ * @param options 上傳設定
  * */
 const emit = defineEmits<{
   "update:imageUrl": [value: string];

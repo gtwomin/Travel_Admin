@@ -1,29 +1,29 @@
 export default {
   home: {
-    welcome: "欢迎使用"
+    welcome: "歡迎使用"
   },
   tabs: {
-    refresh: "刷新",
+    refresh: "重新整理",
     maximize: "最大化",
-    closeCurrent: "关闭当前",
-    closeLeft: "关闭左侧",
-    closeRight: "关闭右侧",
-    closeOther: "关闭其它",
-    closeAll: "关闭所有"
+    closeCurrent: "關閉目前",
+    closeLeft: "關閉左側",
+    closeRight: "關閉右側",
+    closeOther: "關閉其他",
+    closeAll: "關閉全部"
   },
   header: {
-    componentSize: "组件大小",
-    language: "国际化",
-    theme: "全局主题",
-    layoutConfig: "布局设置",
-    primary: "primary",
-    darkMode: "暗黑模式",
+    componentSize: "元件大小",
+    language: "多語系",
+    theme: "全域主題",
+    layoutConfig: "版面配置",
+    primary: "主要顏色",
+    darkMode: "深色模式",
     greyMode: "灰色模式",
     weakMode: "色弱模式",
-    fullScreen: "全屏",
-    exitFullScreen: "退出全屏",
-    personalData: "个人信息",
-    changePassword: "修改密码",
-    logout: "退出登录"
+    fullScreen: "全螢幕",
+    exitFullScreen: "結束全螢幕",
+    personalData: "個人資訊",
+    changePassword: "修改密碼",
+    logout: "登出"
   }
 };

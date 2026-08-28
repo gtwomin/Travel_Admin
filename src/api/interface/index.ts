@@ -60,6 +60,28 @@ export namespace Login {
   }
 }
 
+export namespace Profile {
+  export interface AdminProfileResponse {
+    userId: string;
+    username: string;
+    nickname: string | null;
+    email: string | null;
+    avatar: string | null;
+    roles: string[];
+  }
+
+  export interface AdminProfileForm {
+    nickname: string;
+    email: string;
+    avatar: string;
+  }
+
+  export interface ChangePasswordRequest {
+    currentPassword: string;
+    newPassword: string;
+  }
+}
+
 export namespace AdminUser {
   export type AdminUserSortField = "username" | "nickname" | "email" | "status" | "createdAt" | "updatedAt";
   export type AdminUserSortOrder = "asc" | "desc";

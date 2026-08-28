@@ -1,8 +1,9 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 
+import { Login, Profile } from "@/api/interface";
+import { getAdminProfileApi } from "@/api/modules/profile";
 import { getAdminSessionApi } from "@/api/modules/login";
-import { Login } from "@/api/interface";
 import { getAllBreadcrumbList, getFlatMenuList, getShowMenuList } from "@/utils";
 
 export const useAuthStore = defineStore("geeker-auth", () => {
@@ -23,6 +24,10 @@ export const useAuthStore = defineStore("geeker-auth", () => {
   // 按鈕權限列表
   const authButtonList = ref<{ [key: string]: string[] }>({});
   const session = ref<Login.AdminSessionResponse | null>(null);
+  const profile = ref<Profile.AdminProfileResponse | null>(null);
+  const profileLoading = ref(false);
+  const profileLoaded = ref(false);
+  let profilePromise: Promise<Profile.AdminProfileResponse | null> | null = null;
   const permissions = ref<string[]>([]);
   const initialized = ref(false);
   // 選單權限列表
@@ -54,7 +59,36 @@ export const useAuthStore = defineStore("geeker-auth", () => {
   const syncSession = async () => {
     const currentSession = await getAdminSessionApi();
     setSession(currentSession);
+    await loadProfile();
     return currentSession;
+  };
+
+  const setProfile = (newProfile: Profile.AdminProfileResponse | null) => {
+    profile.value = newProfile;
+    profileLoaded.value = Boolean(newProfile);
+  };
+
+  const loadProfile = async (force = false) => {
+    if (!force && profileLoaded.value && profile.value) return profile.value;
+    if (profilePromise) return profilePromise;
+
+    profileLoading.value = true;
+    profilePromise = getAdminProfileApi()
+      .then(currentProfile => {
+        setProfile(currentProfile);
+        return currentProfile;
+      })
+      .catch(() => {
+        profile.value = null;
+        profileLoaded.value = false;
+        return null;
+      })
+      .finally(() => {
+        profileLoading.value = false;
+        profilePromise = null;
+      });
+
+    return profilePromise;
   };
 
   const setMenuList = (menus: Menu.MenuOptions[]) => {
@@ -63,6 +97,8 @@ export const useAuthStore = defineStore("geeker-auth", () => {
 
   const clearAuth = () => {
     session.value = null;
+    profile.value = null;
+    profileLoaded.value = false;
     permissions.value = [];
     authButtonList.value = {};
     initialized.value = false;
@@ -78,6 +114,9 @@ export const useAuthStore = defineStore("geeker-auth", () => {
     authButtonList,
     session,
     permissions,
+    profile,
+    profileLoading,
+    profileLoaded,
     initialized,
     authMenuList,
     routeName,
@@ -89,6 +128,8 @@ export const useAuthStore = defineStore("geeker-auth", () => {
     breadcrumbListGet,
     hasPermission,
     syncSession,
+    loadProfile,
+    setProfile,
     setSession,
     setMenuList,
     clearAuth,
