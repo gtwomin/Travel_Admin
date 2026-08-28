@@ -164,10 +164,10 @@ class RequestHttp {
   getDirect<T>(url: string, params?: object, _object = {}): Promise<T> {
     return this.service.get(url, { params, ..._object }) as Promise<T>;
   }
-  postDirect<T>(url: string, params?: object | string, _object = {}): Promise<T> {
+  postDirect<T>(url: string, params?: object | string | FormData, _object = {}): Promise<T> {
     return this.service.post(url, params, _object) as Promise<T>;
   }
-  patchDirect<T>(url: string, params?: object | string, _object = {}): Promise<T> {
+  patchDirect<T>(url: string, params?: object | string | FormData, _object = {}): Promise<T> {
     return this.service.patch(url, params, _object) as Promise<T>;
   }
   put<T>(url: string, params?: object, _object = {}): Promise<ResultData<T>> {

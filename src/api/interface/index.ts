@@ -61,6 +61,9 @@ export namespace Login {
 }
 
 export namespace AdminUser {
+  export type AdminUserSortField = "username" | "nickname" | "email" | "status" | "createdAt" | "updatedAt";
+  export type AdminUserSortOrder = "asc" | "desc";
+
   export interface AdminUserResponse {
     id: string;
     username: string;
@@ -84,6 +87,15 @@ export namespace AdminUser {
     nickname?: string;
     email?: string;
     status?: number;
+    sortBy?: AdminUserSortField;
+    sortOrder?: AdminUserSortOrder;
+  }
+
+  export interface AdminUserProfileUpdateParams {
+    nickname: string;
+    email: string;
+    avatar?: File;
+    removeAvatar: boolean;
   }
 }
 

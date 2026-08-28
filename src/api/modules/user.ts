@@ -20,6 +20,21 @@ export const updateAdminUserStatus = (userId: string, status: number) => {
   );
 };
 
+export const updateAdminUserProfile = (userId: string, params: FormData) => {
+  return http.patchDirect<AdminUser.AdminUserResponse>(
+    `/api/v1/admin/users/${userId}/profile`,
+    params,
+    { loading: false }
+  );
+};
+
+export const resolveAvatarUrl = (avatar: string | null | undefined) => {
+  if (!avatar) return "";
+  if (/^https?:\/\//i.test(avatar)) return avatar;
+  const baseUrl = String(import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+  return `${baseUrl}/${avatar.replace(/^\//, "")}`;
+};
+
 /**
  * @description 取得使用者列表
  * @param params User.ReqUserParams
