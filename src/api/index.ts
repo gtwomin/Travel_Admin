@@ -45,7 +45,7 @@ class RequestHttp {
     /**
      * @description 請求攔截器
      * 用戶端發送請求 -> [請求攔截器] -> 伺服器
-     * Token 驗證（JWT）：接收伺服器回傳的 token，儲存至 vuex/pinia/本機儲存空間
+     * Token 驗證（JWT）：接收伺服器回傳的 token，僅儲存於 Pinia 記憶體
      */
     this.service.interceptors.request.use(
       (config: CustomAxiosRequestConfig) => {
@@ -203,6 +203,17 @@ class RequestHttp {
 
   clearCsrfToken() {
     this.csrfToken = null;
+  }
+
+  async restoreAdminSession(): Promise<boolean> {
+    try {
+      await this.refreshAdminToken();
+      return true;
+    } catch {
+      useUserStore().setToken("");
+      this.clearCsrfToken();
+      return false;
+    }
   }
 
   private refreshAdminToken(): Promise<Login.TokenResponse> {

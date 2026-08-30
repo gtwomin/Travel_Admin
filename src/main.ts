@@ -16,6 +16,7 @@ import * as Icons from "@element-plus/icons-vue";
 // element plus
 import ElementPlus from "element-plus";
 
+import http from "@/api";
 // custom directives
 import directives from "@/directives/index";
 // vue i18n
@@ -29,13 +30,22 @@ import errorHandler from "@/utils/errorHandler";
 
 import App from "./App.vue";
 
-const app = createApp(App);
+const LEGACY_USER_STORAGE_KEY = "geeker-user";
 
-app.config.errorHandler = errorHandler;
+const bootstrap = async () => {
+  localStorage.removeItem(LEGACY_USER_STORAGE_KEY);
 
-// register the element Icons component
-Object.keys(Icons).forEach(key => {
-  app.component(key, Icons[key as keyof typeof Icons]);
-});
+  const app = createApp(App);
+  app.config.errorHandler = errorHandler;
 
-app.use(ElementPlus).use(directives).use(pinia).use(router).use(I18n).mount("#app");
+  // register the element Icons component
+  Object.keys(Icons).forEach(key => {
+    app.component(key, Icons[key as keyof typeof Icons]);
+  });
+
+  app.use(ElementPlus).use(directives).use(pinia);
+  await http.restoreAdminSession();
+  app.use(router).use(I18n).mount("#app");
+};
+
+void bootstrap();
