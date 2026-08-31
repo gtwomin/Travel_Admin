@@ -114,7 +114,12 @@ const rules: FormRules = {
   email: [{ type: "email", message: "信箱格式不正確", trigger: "blur" }]
 };
 
-const formatRole = (role: string) => (role === "ROLE_ADMIN" ? "管理員" : role);
+const roleMap: Record<string, string> = {
+  ROLE_ADMIN: "管理員",
+  ROLE_USER: "一般使用者"
+};
+
+const formatRole = (role: string) => roleMap[role] || role;
 
 const resetForm = () => {
   uploadKey.value += 1;

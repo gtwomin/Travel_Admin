@@ -28,7 +28,7 @@ const globalStore = useGlobalStore();
 const language = computed(() => globalStore.language);
 
 const languageList = [
-  { label: "簡體中文", value: "zh" },
+  { label: "繁體中文", value: "zh" },
   { label: "English", value: "en" }
 ];
 

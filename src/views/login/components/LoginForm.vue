@@ -34,13 +34,14 @@ import { ElNotification } from "element-plus";
 import { onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 
-// import { getTimeState } from "@/utils";
+import http from "@/api";
 import { Login } from "@/api/interface";
 import { loginApi } from "@/api/modules/login";
 import { HOME_URL } from "@/config";
 import { useKeepAliveStore } from "@/stores/modules/keepAlive";
 import { useTabsStore } from "@/stores/modules/tabs";
 import { useUserStore } from "@/stores/modules/user";
+import { getTimeState } from "@/utils";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -67,28 +68,24 @@ const login = (formEl: FormInstance | undefined) => {
     if (!valid) return;
     loading.value = true;
     try {
-      // 1.执行登录接口
+      // 1. 執行登入介面
       const response = await loginApi(loginForm);
       userStore.setToken(response.accessToken);
 
-      // 2.清空 tabs、keepAlive 数据
+      // 2. 登入成功後向後端取得最新的 CSRF Token (更新 Cookie 與前端記憶體)
+      await http.refreshCsrfToken();
+
+      // 3. 清空 tabs、keepAlive 資料
       tabsStore.setTabs([]);
       keepAliveStore.setKeepAliveName([]);
 
-      // 3.跳转到首页
+      // 4. 跳轉到首頁
       router.push(HOME_URL);
-      // ElNotification({
-      //   title: getTimeState(),
-      //   message: "欢迎登录 Geeker-Admin",
-      //   type: "success",
-      //   duration: 3000
-      // });
       ElNotification({
-        title: "React 付費版本 🔥🔥🔥",
-        dangerouslyUseHTMLString: true,
-        message: "預覽地址：<a href='https://pro.spicyboy.cn'>https://pro.spicyboy.cn</a>",
+        title: getTimeState(),
+        message: "歡迎登入 Travel 後台管理系統",
         type: "success",
-        duration: 8000
+        duration: 3000
       });
     } finally {
       loading.value = false;
@@ -103,7 +100,8 @@ const resetForm = (formEl: FormInstance | undefined) => {
 };
 
 onMounted(() => {
-  // 监听 enter 事件（调用登录）
+  void http.getCsrfToken();
+  // 監聽 Enter 事件（觸發登入）
   document.onkeydown = (e: KeyboardEvent) => {
     if (e.code === "Enter" || e.code === "enter" || e.code === "NumpadEnter") {
       if (loading.value) return;
