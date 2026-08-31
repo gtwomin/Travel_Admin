@@ -10,6 +10,7 @@ import authMenuList from "@/assets/json/authMenuList.json";
  * @returns Promise<Login.ResLogin>
  */
 export const loginApi = (params: Login.ReqLoginForm) => {
+  http.resumeSessionLifecycle();
   return http.postDirect<Login.TokenResponse>(`/api/v1/auth/admin/login`, params, {
     loading: false,
     skipAuth: true,
@@ -53,16 +54,29 @@ export const getAuthButtonListApi = () => {
 /**
  * @description 使用者登出
  */
-export const logoutApi = async () => {
-  try {
-    const csrf = await http.getCsrfToken();
-    return await http.postDirect<void>("/api/v1/auth/admin/logout", undefined, {
-      skipRefresh: true,
-      headers: {
-        [csrf.headerName]: csrf.token
-      }
+let logoutPromise: Promise<void> | null = null;
+
+export const logoutApi = () => {
+  if (logoutPromise) return logoutPromise;
+
+  logoutPromise = http
+    .beginSessionTermination()
+    // 登出前重新讀取 CSRF，避免記憶體快取與目前瀏覽器 Cookie 不一致而遭 403 拒絕。
+    .then(() => http.refreshCsrfToken())
+    .then(csrf =>
+      http.postDirect<void>("/api/v1/auth/admin/logout", undefined, {
+        cancel: false,
+        skipRefresh: true,
+        suppressErrorMessage: true,
+        headers: {
+          [csrf.headerName]: csrf.token
+        }
+      })
+    )
+    .finally(() => {
+      http.clearCsrfToken();
+      logoutPromise = null;
     });
-  } finally {
-    http.clearCsrfToken();
-  }
+
+  return logoutPromise;
 };

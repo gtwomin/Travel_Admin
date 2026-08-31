@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory, createWebHistory } from "vue-router";
 
+import { axiosCanceler } from "@/api/helper/axiosCancel";
 import { LOGIN_URL, ROUTER_WHITE_LIST } from "@/config";
 import NProgress from "@/config/nprogress";
 import { errorRouter, STATIC_ROUTE_NAMES, staticRouter } from "@/routers/modules/staticRouter";
@@ -90,6 +91,7 @@ router.beforeEach(async (to, from, next) => {
  * */
 export const resetRouter = () => {
   const authStore = useAuthStore();
+  axiosCanceler.removeAllPending();
   removeDynamicRoutes();
   authStore.clearAuth();
   authStore.flatMenuListGet.forEach(route => {

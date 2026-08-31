@@ -1,7 +1,7 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from "axios";
 import { ElMessage } from "element-plus";
 
-import { ApiErrorResponse, Login, ResultData } from "@/api/interface";
+import { ApiErrorResponse, ApiFieldError, Login, ResultData } from "@/api/interface";
 import { showFullScreenLoading, tryHideFullScreenLoading } from "@/components/Loading/fullScreen";
 import { LOGIN_URL } from "@/config";
 import { ResultEnum } from "@/enums/httpEnum";
@@ -9,7 +9,7 @@ import router from "@/routers";
 import { useUserStore } from "@/stores/modules/user";
 import mittBus from "@/utils/mittBus";
 
-import { AxiosCanceler } from "./helper/axiosCancel";
+import { axiosCanceler } from "./helper/axiosCancel";
 import { checkStatus } from "./helper/checkStatus";
 
 export interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
@@ -30,13 +30,12 @@ const config = {
   withCredentials: true
 };
 
-const axiosCanceler = new AxiosCanceler();
-
 class RequestHttp {
   service: AxiosInstance;
   private csrfToken: Login.CsrfResponse | null = null;
   private csrfPromise: Promise<Login.CsrfResponse> | null = null;
   private refreshPromise: Promise<Login.TokenResponse> | null = null;
+  private sessionTerminating = false;
 
   public constructor(config: AxiosRequestConfig) {
     // instantiation
@@ -75,7 +74,7 @@ class RequestHttp {
         const { data, config } = response;
 
         const userStore = useUserStore();
-        axiosCanceler.removePending(config);
+        axiosCanceler.clearPending(config);
         if (config.loading) tryHideFullScreenLoading();
         // 登入失效
         if (data && typeof data === "object" && data.code == ResultEnum.OVERDUE) {
@@ -95,11 +94,21 @@ class RequestHttp {
       async (error: AxiosError) => {
         const { response } = error;
         const requestConfig = error.config as CustomAxiosRequestConfig | undefined;
-        tryHideFullScreenLoading();
+        const errorMessage = String(error.message || "");
+        if (requestConfig) axiosCanceler.clearPending(requestConfig);
+        if (requestConfig?.loading) tryHideFullScreenLoading();
+
+        if (axios.isCancel(error)) {
+          return Promise.reject(error);
+        }
+
+        const userStore = useUserStore();
 
         if (
           response?.status === ResultEnum.OVERDUE &&
           requestConfig &&
+          userStore.token &&
+          !this.sessionTerminating &&
           !requestConfig.skipRefresh &&
           !requestConfig._retry &&
           !this.isAuthEndpoint(requestConfig.url)
@@ -112,31 +121,37 @@ class RequestHttp {
             }
             return this.service.request(requestConfig);
           } catch (refreshError) {
-            const userStore = useUserStore();
-            userStore.setToken("");
-            this.clearCsrfToken();
-            router.replace(LOGIN_URL);
+            if (!this.sessionTerminating) {
+              axiosCanceler.removeAllPending();
+              userStore.setToken("");
+              this.clearCsrfToken();
+              router.replace(LOGIN_URL);
+            }
             return Promise.reject(refreshError);
           }
         }
 
-        if (response?.status === ResultEnum.OVERDUE && requestConfig && requestConfig._retry && !requestConfig.skipRefresh) {
-          const userStore = useUserStore();
+        if (
+          response?.status === ResultEnum.OVERDUE &&
+          !this.sessionTerminating &&
+          (!userStore.token || (requestConfig && requestConfig._retry && !requestConfig.skipRefresh))
+        ) {
+          axiosCanceler.removeAllPending();
           userStore.setToken("");
           this.clearCsrfToken();
           router.replace(LOGIN_URL);
         }
 
         // 請求逾時與網路錯誤分開判斷，沒有 response
-        if (error.message.indexOf("timeout") !== -1) ElMessage.error("請求逾時！請稍後再試");
-        if (error.message.indexOf("Network Error") !== -1) ElMessage.error("網路錯誤！請稍後再試");
+        if (errorMessage.indexOf("timeout") !== -1) ElMessage.error("請求逾時！請稍後再試");
+        if (errorMessage.indexOf("Network Error") !== -1) ElMessage.error("網路錯誤！請稍後再試");
         // 後端錯誤回應優先使用 message / fieldErrors，否則才使用 status fallback。
         if (response && !requestConfig?.suppressErrorMessage) {
           const apiError = response.data as ApiErrorResponse | undefined;
           if (apiError?.message) {
             const fieldErrors = Array.isArray(apiError.fieldErrors)
-              ? apiError.fieldErrors
-                  .filter(fieldError => fieldError?.message)
+              ? (apiError.fieldErrors as ApiFieldError[])
+                  .filter(fieldError => Boolean(fieldError?.message))
                   .map(fieldError => `${fieldError.field}: ${fieldError.message}`)
               : [];
             const message = [apiError.message, ...fieldErrors].join("\n");
@@ -180,15 +195,16 @@ class RequestHttp {
     return this.service.post(url, params, { ..._object, responseType: "blob" });
   }
 
-  async getCsrfToken(): Promise<Login.CsrfResponse> {
-    if (this.csrfToken) return this.csrfToken;
+  async getCsrfToken(force = false): Promise<Login.CsrfResponse> {
+    if (!force && this.csrfToken) return this.csrfToken;
     if (this.csrfPromise) return this.csrfPromise;
 
     this.csrfPromise = this.getDirect<Login.CsrfResponse>("/api/v1/auth/csrf", undefined, {
       skipAuth: true,
       skipRefresh: true,
       suppressErrorMessage: true,
-      loading: false
+      loading: false,
+      cancel: false
     })
       .then(response => {
         this.csrfToken = response;
@@ -201,11 +217,40 @@ class RequestHttp {
     return this.csrfPromise;
   }
 
+  async refreshCsrfToken(): Promise<Login.CsrfResponse> {
+    this.clearCsrfToken();
+    return this.getCsrfToken(true);
+  }
+
   clearCsrfToken() {
     this.csrfToken = null;
   }
 
+  cancelAllPending() {
+    axiosCanceler.removeAllPending();
+  }
+
+  async beginSessionTermination() {
+    if (this.sessionTerminating) return;
+
+    this.sessionTerminating = true;
+    const activeRefresh = this.refreshPromise;
+    if (activeRefresh) {
+      try {
+        await activeRefresh;
+      } catch {
+        // 登出仍會使用目前的 Access Token 嘗試撤銷遠端工作階段。
+      }
+    }
+    axiosCanceler.removeAllPending();
+  }
+
+  resumeSessionLifecycle() {
+    this.sessionTerminating = false;
+  }
+
   async restoreAdminSession(): Promise<boolean> {
+    this.resumeSessionLifecycle();
     try {
       await this.refreshAdminToken();
       return true;
@@ -226,6 +271,7 @@ class RequestHttp {
           skipRefresh: true,
           suppressErrorMessage: true,
           loading: false,
+          cancel: false,
           headers: {
             [csrf.headerName]: csrf.token
           }

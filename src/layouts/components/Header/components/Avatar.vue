@@ -13,7 +13,7 @@
         <el-dropdown-item @click="openDialog('password')">
           <el-icon><Edit /></el-icon>{{ $t("header.changePassword") }}
         </el-dropdown-item>
-        <el-dropdown-item divided @click="logout">
+        <el-dropdown-item divided :disabled="logoutLoading" @click="logout">
           <el-icon><SwitchButton /></el-icon>{{ $t("header.logout") }}
         </el-dropdown-item>
       </el-dropdown-menu>
@@ -26,6 +26,7 @@
 </template>
 
 <script setup lang="ts">
+import axios from "axios";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -47,6 +48,7 @@ const userStore = useUserStore();
 const authStore = useAuthStore();
 const tabsStore = useTabsStore();
 const keepAliveStore = useKeepAliveStore();
+const logoutLoading = ref(false);
 
 const avatarUrl = computed(() => resolveAvatarUrl(authStore.profile?.avatar));
 const avatarInitial = computed(() => {
@@ -63,22 +65,33 @@ const clearLocalSession = () => {
 };
 
 // 登出
-const logout = () => {
-  ElMessageBox.confirm("您是否確認要登出？", "溫馨提示", {
-    confirmButtonText: "確定",
-    cancelButtonText: "取消",
-    type: "warning"
-  }).then(async () => {
-    try {
-      await logoutApi();
-      ElMessage.success("登出成功！");
-    } catch {
+const logout = async () => {
+  if (logoutLoading.value) return;
+  logoutLoading.value = true;
+
+  try {
+    await ElMessageBox.confirm("您是否確認要登出？", "提示", {
+      confirmButtonText: "確定",
+      cancelButtonText: "取消",
+      type: "warning"
+    });
+  } catch {
+    logoutLoading.value = false;
+    return;
+  }
+
+  try {
+    await logoutApi();
+    ElMessage.success("登出成功！");
+  } catch (error) {
+    if (!axios.isCancel(error)) {
       ElMessage.warning("後端登出未完成，已清除本機登入狀態！");
-    } finally {
-      clearLocalSession();
-      router.replace(LOGIN_URL);
     }
-  });
+  } finally {
+    clearLocalSession();
+    await router.replace(LOGIN_URL);
+    logoutLoading.value = false;
+  }
 };
 
 const handlePasswordChanged = () => {
