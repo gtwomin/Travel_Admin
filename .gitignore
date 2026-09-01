@@ -7,11 +7,39 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Dependencies and build output
 node_modules
 dist
 dist-ssr
 stats.html
 *.local
+
+# Test and tool caches
+coverage/
+playwright-report/
+test-results/
+.vite/
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+.pnpm-store/
+
+# Local certificates and temporary files
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+tmp/
+temp/
+*.tmp
+*.bak
 
 # Editor directories and files
 .vscode/*
