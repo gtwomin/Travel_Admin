@@ -1,31 +1,23 @@
 import http from "@/api";
-import { PORT1 } from "@/api/config/servicePort";
+import { ADMIN_SERVICE, PORT1 } from "@/api/config/servicePort";
 import { AdminUser, ResPage, User } from "@/api/interface/index";
 
 export const getAdminUserPage = (params: AdminUser.AdminUserPageParams) => {
   return http
-    .getDirect<AdminUser.AdminUserPageResponse>("/api/v1/admin/users", params, { loading: false })
+    .getDirect<AdminUser.AdminUserPageResponse>(`${ADMIN_SERVICE}/users`, params, { loading: false })
     .then(data => ({ data }));
 };
 
 export const getAdminUserDetail = (userId: string) => {
-  return http.getDirect<AdminUser.AdminUserResponse>(`/api/v1/admin/users/${userId}`, undefined, { loading: false });
+  return http.getDirect<AdminUser.AdminUserResponse>(`${ADMIN_SERVICE}/users/${userId}`, undefined, { loading: false });
 };
 
 export const updateAdminUserStatus = (userId: string, status: number) => {
-  return http.patchDirect<AdminUser.AdminUserResponse>(
-    `/api/v1/admin/users/${userId}/status`,
-    { status },
-    { loading: false }
-  );
+  return http.patchDirect<AdminUser.AdminUserResponse>(`${ADMIN_SERVICE}/users/${userId}/status`, { status }, { loading: false });
 };
 
 export const updateAdminUserProfile = (userId: string, params: FormData) => {
-  return http.patchDirect<AdminUser.AdminUserResponse>(
-    `/api/v1/admin/users/${userId}/profile`,
-    params,
-    { loading: false }
-  );
+  return http.patchDirect<AdminUser.AdminUserResponse>(`${ADMIN_SERVICE}/users/${userId}/profile`, params, { loading: false });
 };
 
 export const resolveAvatarUrl = (avatar: string | null | undefined) => {

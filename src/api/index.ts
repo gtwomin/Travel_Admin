@@ -11,6 +11,7 @@ import mittBus from "@/utils/mittBus";
 
 import { axiosCanceler } from "./helper/axiosCancel";
 import { checkStatus } from "./helper/checkStatus";
+import { AUTH_SERVICE } from "./config/servicePort";
 
 export interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   loading?: boolean;
@@ -199,7 +200,7 @@ class RequestHttp {
     if (!force && this.csrfToken) return this.csrfToken;
     if (this.csrfPromise) return this.csrfPromise;
 
-    this.csrfPromise = this.getDirect<Login.CsrfResponse>("/api/v1/auth/csrf", undefined, {
+    this.csrfPromise = this.getDirect<Login.CsrfResponse>(`${AUTH_SERVICE}/csrf`, undefined, {
       skipAuth: true,
       skipRefresh: true,
       suppressErrorMessage: true,
@@ -266,7 +267,7 @@ class RequestHttp {
 
     this.refreshPromise = this.getCsrfToken()
       .then(csrf =>
-        this.postDirect<Login.TokenResponse>("/api/v1/auth/admin/refresh", undefined, {
+        this.postDirect<Login.TokenResponse>(`${AUTH_SERVICE}/admin/refresh`, undefined, {
           skipAuth: true,
           skipRefresh: true,
           suppressErrorMessage: true,
@@ -291,9 +292,12 @@ class RequestHttp {
 
   private isAuthEndpoint(url?: string) {
     if (!url) return false;
-    return ["/api/v1/auth/admin/login", "/api/v1/auth/admin/refresh", "/api/v1/auth/admin/logout", "/api/v1/auth/csrf"].some(
-      endpoint => url.includes(endpoint)
-    );
+    return [
+      `${AUTH_SERVICE}/admin/login`,
+      `${AUTH_SERVICE}/admin/refresh`,
+      `${AUTH_SERVICE}/admin/logout`,
+      `${AUTH_SERVICE}/csrf`
+    ].some(endpoint => url.includes(endpoint));
   }
 }
 

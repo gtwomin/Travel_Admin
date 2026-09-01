@@ -1,5 +1,5 @@
 import http from "@/api";
-import { PORT1 } from "@/api/config/servicePort";
+import { AUTH_SERVICE, PORT1 } from "@/api/config/servicePort";
 import { Login } from "@/api/interface/index";
 import authButtonList from "@/assets/json/authButtonList.json";
 import authMenuList from "@/assets/json/authMenuList.json";
@@ -11,7 +11,7 @@ import authMenuList from "@/assets/json/authMenuList.json";
  */
 export const loginApi = (params: Login.ReqLoginForm) => {
   http.resumeSessionLifecycle();
-  return http.postDirect<Login.TokenResponse>(`/api/v1/auth/admin/login`, params, {
+  return http.postDirect<Login.TokenResponse>(`${AUTH_SERVICE}/admin/login`, params, {
     loading: false,
     skipAuth: true,
     skipRefresh: true
@@ -26,7 +26,7 @@ export const loginApi = (params: Login.ReqLoginForm) => {
  * @description 取得目前登入管理員的角色與權限
  */
 export const getAdminSessionApi = () => {
-  return http.getDirect<Login.AdminSessionResponse>("/api/v1/auth/admin/me", undefined, {
+  return http.getDirect<Login.AdminSessionResponse>(`${AUTH_SERVICE}/admin/me`, undefined, {
     loading: false
   });
 };
@@ -64,7 +64,7 @@ export const logoutApi = () => {
     // 登出前重新讀取 CSRF，避免記憶體快取與目前瀏覽器 Cookie 不一致而遭 403 拒絕。
     .then(() => http.refreshCsrfToken())
     .then(csrf =>
-      http.postDirect<void>("/api/v1/auth/admin/logout", undefined, {
+      http.postDirect<void>(`${AUTH_SERVICE}/admin/logout`, undefined, {
         cancel: false,
         skipRefresh: true,
         suppressErrorMessage: true,
