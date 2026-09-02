@@ -25,6 +25,7 @@
     "build:test": "vue-tsc && vite build --mode test",
     "build:pro": "vue-tsc && vite build --mode production",
     "type:check": "vue-tsc --noEmit --skipLibCheck",
+    "test:unit": "vitest run",
     "preview": "pnpm build:dev && vite preview",
     "lint:eslint": "eslint --fix --ext .js,.ts,.vue ./src",
     "lint:prettier": "prettier --write \"src/**/*.{js,ts,json,tsx,css,less,scss,vue,html,md}\"",
@@ -101,6 +102,7 @@
     "vite-plugin-pwa": "^1.0.0",
     "vite-plugin-svg-icons": "^2.0.1",
     "vite-plugin-vue-devtools": "^7.7.5",
+    "vitest": "^4.1.11",
     "vue-eslint-parser": "^10.2.0",
     "vue-tsc": "^2.2.8"
   },

@@ -63,14 +63,11 @@ export const logoutApi = () => {
     .beginSessionTermination()
     // 登出前重新讀取 CSRF，避免記憶體快取與目前瀏覽器 Cookie 不一致而遭 403 拒絕。
     .then(() => http.refreshCsrfToken())
-    .then(csrf =>
+    .then(() =>
       http.postDirect<void>(`${AUTH_SERVICE}/admin/logout`, undefined, {
         cancel: false,
         skipRefresh: true,
-        suppressErrorMessage: true,
-        headers: {
-          [csrf.headerName]: csrf.token
-        }
+        suppressErrorMessage: true
       })
     )
     .finally(() => {

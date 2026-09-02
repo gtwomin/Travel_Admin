@@ -28,10 +28,14 @@ const config = {
   // 設定逾時時間
   timeout: ResultEnum.TIMEOUT as number,
   // 跨網域請求時允許攜帶憑證
-  withCredentials: true
+  withCredentials: true,
+  // 由 Axios 依瀏覽器中的 CSRF Cookie 自動產生請求 Header
+  xsrfCookieName: "XSRF-TOKEN",
+  xsrfHeaderName: "X-XSRF-TOKEN",
+  withXSRFToken: true
 };
 
-class RequestHttp {
+export class RequestHttp {
   service: AxiosInstance;
   private csrfToken: Login.CsrfResponse | null = null;
   private csrfPromise: Promise<Login.CsrfResponse> | null = null;
@@ -266,16 +270,13 @@ class RequestHttp {
     if (this.refreshPromise) return this.refreshPromise;
 
     this.refreshPromise = this.getCsrfToken()
-      .then(csrf =>
+      .then(() =>
         this.postDirect<Login.TokenResponse>(`${AUTH_SERVICE}/admin/refresh`, undefined, {
           skipAuth: true,
           skipRefresh: true,
           suppressErrorMessage: true,
           loading: false,
-          cancel: false,
-          headers: {
-            [csrf.headerName]: csrf.token
-          }
+          cancel: false
         })
       )
       .then(response => {
