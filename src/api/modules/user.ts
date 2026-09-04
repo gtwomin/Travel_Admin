@@ -9,15 +9,21 @@ export const getAdminUserPage = (params: AdminUser.AdminUserPageParams) => {
 };
 
 export const getAdminUserDetail = (userId: string) => {
-  return http.getDirect<AdminUser.AdminUserResponse>(`${ADMIN_SERVICE}/users/${userId}`, undefined, { loading: false });
+  return http.getDirect<AdminUser.AdminUserDetailResponse>(`${ADMIN_SERVICE}/users/${userId}`, undefined, { loading: false });
 };
 
 export const updateAdminUserStatus = (userId: string, status: number) => {
-  return http.patchDirect<AdminUser.AdminUserResponse>(`${ADMIN_SERVICE}/users/${userId}/status`, { status }, { loading: false });
+  return http.patchDirect<AdminUser.AdminUserSummaryResponse>(
+    `${ADMIN_SERVICE}/users/${userId}/status`,
+    { status },
+    { loading: false }
+  );
 };
 
 export const updateAdminUserProfile = (userId: string, params: FormData) => {
-  return http.patchDirect<AdminUser.AdminUserResponse>(`${ADMIN_SERVICE}/users/${userId}/profile`, params, { loading: false });
+  return http.patchDirect<AdminUser.AdminUserSummaryResponse>(`${ADMIN_SERVICE}/users/${userId}/profile`, params, {
+    loading: false
+  });
 };
 
 export const resolveAvatarUrl = (avatar: string | null | undefined) => {

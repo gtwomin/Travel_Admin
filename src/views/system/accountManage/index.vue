@@ -19,12 +19,7 @@ import { ElButton, ElTag } from "element-plus";
 import { reactive, ref } from "vue";
 
 import { AdminUser } from "@/api/interface";
-import {
-  getAdminUserDetail,
-  getAdminUserPage,
-  updateAdminUserProfile,
-  updateAdminUserStatus
-} from "@/api/modules/user";
+import { getAdminUserDetail, getAdminUserPage, updateAdminUserProfile, updateAdminUserStatus } from "@/api/modules/user";
 import ProTable from "@/components/ProTable/index.vue";
 import { ColumnProps, ProTableInstance } from "@/components/ProTable/interface";
 import { useAuthStore } from "@/stores/modules/auth";
@@ -43,12 +38,12 @@ const statusOptions = [
 
 const getTableList = (params: AdminUser.AdminUserPageParams) => getAdminUserPage(params);
 
-const openDetail = async (row: AdminUser.AdminUserResponse) => {
+const openDetail = async (row: AdminUser.AdminUserSummaryResponse) => {
   const detail = await getAdminUserDetail(row.id);
   drawerRef.value?.acceptParams({ title: "使用者詳情", mode: "view", row: detail });
 };
 
-const openEdit = async (row: AdminUser.AdminUserResponse) => {
+const openEdit = async (row: AdminUser.AdminUserSummaryResponse) => {
   const detail = await getAdminUserDetail(row.id);
   drawerRef.value?.acceptParams({
     title: "編輯使用者",
@@ -61,13 +56,13 @@ const openEdit = async (row: AdminUser.AdminUserResponse) => {
 
 const changeStatusApi = (params: { id: string; status: number }) => updateAdminUserStatus(params.id, params.status);
 
-const changeStatus = async (row: AdminUser.AdminUserResponse) => {
+const changeStatus = async (row: AdminUser.AdminUserSummaryResponse) => {
   const nextStatus = row.status === 1 ? 0 : 1;
   await useHandleData(changeStatusApi, { id: row.id, status: nextStatus }, `切換【${row.username}】狀態`);
   proTable.value?.getTableList();
 };
 
-const columns = reactive<ColumnProps<AdminUser.AdminUserResponse>[]>([
+const columns = reactive<ColumnProps<AdminUser.AdminUserSummaryResponse>[]>([
   {
     prop: "username",
     label: "帳號",

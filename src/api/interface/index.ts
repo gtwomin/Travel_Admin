@@ -86,19 +86,26 @@ export namespace AdminUser {
   export type AdminUserSortField = "username" | "nickname" | "email" | "status" | "createdAt" | "updatedAt";
   export type AdminUserSortOrder = "asc" | "desc";
 
-  export interface AdminUserResponse {
+  export interface AdminUserSummaryResponse {
     id: string;
     username: string;
-    nickname: string;
-    email: string;
+    nickname: string | null;
+    email: string | null;
     avatar: string | null;
     status: number;
     createdAt: string;
     updatedAt: string;
   }
 
+  export interface AdminUserDetailResponse extends AdminUserSummaryResponse {
+    isEmailVerified: boolean;
+    phone: string | null;
+    birthday: string | null;
+    bio: string | null;
+  }
+
   export interface AdminUserPageResponse {
-    list: AdminUserResponse[];
+    list: AdminUserSummaryResponse[];
     total: number;
     pageNum: number;
     pageSize: number;
@@ -113,11 +120,13 @@ export namespace AdminUser {
     sortOrder?: AdminUserSortOrder;
   }
 
-  export interface AdminUserProfileUpdateParams {
-    nickname: string;
-    email: string;
+  export interface AdminUpdateUserProfileParams {
+    nickname?: string;
+    email?: string;
+    phone?: string;
+    birthday?: string;
     avatar?: File;
-    removeAvatar: boolean;
+    removeAvatar?: boolean;
   }
 }
 

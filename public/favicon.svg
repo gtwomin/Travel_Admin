@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="travel-brand-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e75eb" />
+      <stop offset="100%" stop-color="#0e56c4" />
+    </linearGradient>
+  </defs>
+  <!-- Background rounded box -->
+  <rect width="64" height="64" rx="14" fill="url(#travel-brand-gradient)" />
+  <!-- Bold modern 'T' mark with refined rounded corners -->
+  <path
+    d="M 14 15 C 14 13.895 14.895 13 16 13 H 48 C 49.105 13 50 13.895 50 15 V 22 C 50 23.105 49.105 24 48 24 H 37.5 V 49 C 37.5 50.105 36.605 51 35.5 51 H 28.5 C 27.395 51 26.5 50.105 26.5 49 V 24 H 16 C 14.895 24 14 23.105 14 22 Z"
+    fill="#ffffff"
+  />
+</svg>

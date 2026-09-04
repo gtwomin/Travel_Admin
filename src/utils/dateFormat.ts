@@ -13,3 +13,6 @@ export const formatTaipeiDateTime = (value?: string | null) => {
 
   return dayjs.utc(value).tz(TAIPEI_TIMEZONE).format("YYYY-MM-DD HH:mm:ss");
 };
+
+/** 取得臺北時區的當日日期，供生日等日期欄位限制使用。 */
+export const getTaipeiToday = () => dayjs().tz(TAIPEI_TIMEZONE).format("YYYY-MM-DD");
