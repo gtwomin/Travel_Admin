@@ -1,7 +1,7 @@
 <template>
   <el-drawer v-model="drawerVisible" :destroy-on-close="true" size="450px" :title="drawerProps.title">
     <template v-if="drawerProps.mode === 'view'">
-      <el-divider content-position="left">基本資料</el-divider>
+      <el-divider class="detail-divider" content-position="left">基本資料</el-divider>
       <el-descriptions :column="1" border>
         <el-descriptions-item label="頭像">
           <el-image
@@ -23,7 +23,7 @@
         </el-descriptions-item>
       </el-descriptions>
 
-      <el-divider content-position="left">聯絡與個人資料</el-divider>
+      <el-divider class="detail-divider" content-position="left">聯絡與個人資料</el-divider>
       <el-descriptions :column="1" border>
         <el-descriptions-item label="電話">{{ currentRow.phone || "—" }}</el-descriptions-item>
         <el-descriptions-item label="生日">{{ currentRow.birthday || "—" }}</el-descriptions-item>
@@ -32,7 +32,7 @@
         </el-descriptions-item>
       </el-descriptions>
 
-      <el-divider content-position="left">系統資訊</el-divider>
+      <el-divider class="detail-divider" content-position="left">系統資訊</el-divider>
       <el-descriptions :column="1" border>
         <el-descriptions-item label="帳號狀態">
           <el-tag :type="currentRow.status === 1 ? 'success' : 'danger'">
@@ -242,5 +242,9 @@ defineExpose({ acceptParams });
   display: block;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+.detail-divider :deep(.el-divider__text.is-left) {
+  left: 0;
+  padding: 0 12px;
 }
 </style>
