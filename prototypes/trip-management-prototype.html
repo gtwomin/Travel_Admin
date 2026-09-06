@@ -10,8 +10,20 @@
   Trip ERD-aligned: trip.name, trip.summary, trip.content, trip.comment, trip.price,
   trip.created_at, trip.updated_at, trip_departure.start_time,
   trip_departure.end_time, trip_departure.capacity, Trip 1:N TripPhoto.
-  Pending Backend Contract (Trip): publication status, departure dates / datetime, destination / trip_location
-  details, trip duration, meeting place, trip_photo VARCHAR field names.
+  Recommended sellable TripDeparture prototype contract: startAt, endAt, timeZone,
+  capacity, price, status, bookingOpenAt, bookingCloseAt, meetingPlace, note,
+  createdAt and updatedAt. occupiedQuantity and remainingCapacity are derived from
+  effective OrderItems; sold-out, departed and completed states are also derived.
+  Trip Product Daily Itinerary proposed model:
+  trip 1:N tour_product_days; tour_product_days 1:N tour_day_spots.
+  This commerce model is intentionally separate from trip_plans / trip_days / trip_items,
+  which are used by AI/custom itinerary planning.
+  tour_product_days.extraFeeNote is a proposed optional daily itinerary field;
+  the formal Backend Contract has not been approved.
+  Pending Backend Contract (Trip): publication status, adoption of the recommended
+  TripDeparture fields beyond the current start_time / end_time / capacity columns,
+  destination / trip_location details, trip duration, trip_photo VARCHAR field names,
+  and the proposed daily itinerary tables.
   Purchase History ERD-aligned: order.user_id, order.total_amount,
   order_items.order_id, order_items.trip_id, order_items.departure_id,
   order_items.quantity, order_items.unit_price, payments.order_id,
@@ -397,6 +409,19 @@
         font-weight: 600;
         color: var(--primary);
       }
+      .steps button:disabled {
+        color: #c0c4cc;
+        cursor: not-allowed;
+      }
+      .step-error {
+        padding: 10px 14px;
+        margin: -12px 0 22px;
+        font-size: 13px;
+        color: #a15c00;
+        background: #fdf6ec;
+        border: 1px solid #f3d19e;
+        border-radius: 4px;
+      }
       .step-number {
         display: inline-flex;
         align-items: center;
@@ -469,6 +494,711 @@
         background: #fafafa;
         border: 1px solid var(--border);
       }
+      .itinerary-list,
+      .departure-list {
+        display: grid;
+        gap: 16px;
+      }
+      .day-card,
+      .departure-card {
+        padding: 18px;
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+      }
+      .day-card {
+        border-left: 4px solid var(--primary);
+      }
+      .day-card-header,
+      .spot-card,
+      .departure-card-header,
+      .preview-header,
+      .preview-meta,
+      .preview-day-header {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      .day-card-header,
+      .departure-card-header,
+      .preview-day-header {
+        justify-content: space-between;
+      }
+      .day-card-header {
+        margin-bottom: 16px;
+      }
+      .day-label {
+        font-size: 16px;
+        font-weight: 600;
+        color: #303133;
+      }
+      .day-label small {
+        margin-left: 8px;
+        font-size: 12px;
+        font-weight: 400;
+        color: var(--muted);
+      }
+      .day-fields {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px 18px;
+      }
+      .day-field--full {
+        grid-column: 1 / -1;
+      }
+      .day-field label,
+      .departure-field label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .day-field textarea {
+        min-height: 72px;
+      }
+      .spot-section {
+        padding-top: 18px;
+        margin-top: 18px;
+        border-top: 1px solid var(--border);
+      }
+      .spot-section-header {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+      .spot-section-header h3 {
+        margin: 0;
+        font-size: 14px;
+        color: #303133;
+      }
+      .spot-list {
+        display: grid;
+        gap: 10px;
+      }
+      .spot-card {
+        align-items: flex-start;
+        padding: 12px;
+        background: #fafafa;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+      }
+      .spot-index {
+        display: inline-flex;
+        flex: 0 0 28px;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        color: var(--primary);
+        background: var(--light);
+        border-radius: 50%;
+      }
+      .spot-thumb {
+        flex: 0 0 88px;
+        width: 88px;
+        height: 64px;
+        object-fit: cover;
+        background: #eaf1ef;
+        border-radius: 4px;
+      }
+      .spot-content {
+        flex: 1;
+        min-width: 0;
+      }
+      .spot-content strong {
+        display: block;
+        margin-bottom: 3px;
+        color: #303133;
+      }
+      .spot-content p {
+        margin: 5px 0 0;
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+      }
+      .spot-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: flex-end;
+      }
+      .spot-actions button {
+        min-height: 26px;
+        padding: 3px 7px;
+        font-size: 12px;
+      }
+      .itinerary-actions {
+        display: flex;
+        justify-content: center;
+        margin-top: 18px;
+      }
+      .departure-card-header {
+        margin-bottom: 14px;
+      }
+      .departure-card-header strong {
+        color: #303133;
+      }
+      .departure-fields {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .departure-field--wide {
+        grid-column: span 2;
+      }
+      .departure-field--full {
+        grid-column: 1 / -1;
+      }
+      .departure-field textarea {
+        min-height: 72px;
+      }
+      .departure-validation {
+        padding: 9px 11px;
+        margin: 14px 0 0;
+        font-size: 13px;
+        color: #a15c00;
+        background: #fdf6ec;
+        border: 1px solid #f3d19e;
+        border-radius: 4px;
+      }
+      .departure-metrics {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        padding: 12px;
+        margin-bottom: 14px;
+        background: #f5f7fa;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+      }
+      .departure-metric span {
+        display: block;
+        margin-bottom: 3px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .departure-metric strong {
+        margin: 0;
+        font-size: 15px;
+      }
+      .departure-carousel-nav {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: flex-end;
+        margin: 16px 0 10px;
+      }
+      .departure-carousel-nav span {
+        min-width: 96px;
+        color: #606266;
+        text-align: center;
+      }
+      .departure-list {
+        display: flex;
+        gap: 16px;
+        padding: 2px 2px 10px;
+        overflow: auto hidden;
+        scroll-snap-type: x mandatory;
+        scrollbar-color: #b7c0c7 #eef1f4;
+        scrollbar-width: thin;
+        scroll-behavior: smooth;
+      }
+      .departure-list .departure-card {
+        flex: 0 0 calc(100% - 2px);
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+      }
+      .itinerary-list {
+        display: flex;
+        gap: 16px;
+        padding: 2px 2px 10px;
+        overflow: auto hidden;
+        scroll-snap-type: x mandatory;
+        scrollbar-color: #b7c0c7 #eef1f4;
+        scrollbar-width: thin;
+        scroll-behavior: smooth;
+      }
+      .itinerary-list .day-card {
+        flex: 0 0 calc(100% - 2px);
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+      }
+      .departure-groups {
+        display: grid;
+        gap: 18px;
+      }
+      .departure-scope-tabs {
+        display: flex;
+        gap: 24px;
+        padding: 16px 0 0;
+        margin-bottom: 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .departure-scope-tabs button {
+        position: relative;
+        padding: 0 2px 12px;
+        color: var(--muted);
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+      }
+      .departure-scope-tabs button.selected {
+        font-weight: 600;
+        color: var(--primary);
+      }
+      .departure-scope-tabs button.selected::after {
+        position: absolute;
+        right: 0;
+        bottom: -1px;
+        left: 0;
+        height: 2px;
+        content: "";
+        background: var(--primary);
+      }
+      .departure-scope-tabs button span {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 20px;
+        height: 20px;
+        padding: 0 6px;
+        margin-left: 4px;
+        font-size: 12px;
+        color: #606266;
+        background: #f4f4f5;
+        border-radius: 10px;
+      }
+      .departure-group {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+      }
+      .departure-group-header {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 18px;
+        background: #fafafa;
+        border-bottom: 1px solid var(--border);
+      }
+      .departure-group-title {
+        display: flex;
+        gap: 9px;
+        align-items: center;
+        min-width: 0;
+      }
+      .departure-group-title h2 {
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 16px;
+        color: #303133;
+        white-space: nowrap;
+      }
+      .departure-group-actions,
+      .departure-card-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .departure-group-actions button {
+        min-width: 34px;
+      }
+      .departure-group-track {
+        display: flex;
+        gap: 14px;
+        padding: 16px;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scrollbar-color: #b7c0c7 #eef1f4;
+        scrollbar-width: thin;
+        scroll-behavior: smooth;
+      }
+      .departure-summary-card {
+        flex: 0 0 min(370px, calc(100% - 12px));
+        padding: 16px;
+        scroll-snap-align: start;
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-top: 3px solid var(--primary);
+        border-radius: 5px;
+      }
+      .departure-summary-card.is-history {
+        background: #fafafa;
+        border-top-color: #c0c4cc;
+      }
+      .departure-summary-top {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 13px;
+      }
+      .departure-summary-top strong {
+        color: #303133;
+      }
+      .departure-summary-time {
+        padding-bottom: 12px;
+        margin-bottom: 12px;
+        line-height: 1.7;
+        color: #303133;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      .departure-summary-time small {
+        display: block;
+        color: var(--muted);
+      }
+      .departure-summary-facts {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 14px;
+        margin-bottom: 14px;
+      }
+      .departure-summary-fact span {
+        display: block;
+        margin-bottom: 2px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .departure-summary-fact strong {
+        font-size: 14px;
+        color: #303133;
+      }
+      .departure-card-actions {
+        justify-content: flex-end;
+        padding-top: 12px;
+        border-top: 1px solid #f0f0f0;
+      }
+      .preview-shell {
+        padding: 20px;
+        background: #fafafa;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+      }
+      .preview-header {
+        align-items: flex-start;
+        justify-content: space-between;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .preview-header h3 {
+        margin: 0 0 5px;
+        color: #303133;
+      }
+      .preview-price {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--primary);
+        white-space: nowrap;
+      }
+      .preview-meta {
+        flex-wrap: wrap;
+        padding: 14px 0;
+        color: var(--muted);
+        border-bottom: 1px solid var(--border);
+      }
+      .preview-meta span {
+        padding-right: 12px;
+        border-right: 1px solid var(--border);
+      }
+      .preview-meta span:last-child {
+        border-right: 0;
+      }
+      .preview-days {
+        display: grid;
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .preview-day {
+        padding: 16px;
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+      }
+      .preview-day-header {
+        align-items: flex-start;
+      }
+      .preview-day-header h4 {
+        margin: 0;
+        color: #303133;
+      }
+      .preview-facts {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px 16px;
+        padding: 12px 0;
+        margin: 12px 0;
+        font-size: 13px;
+        border-top: 1px solid #f0f0f0;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      .preview-facts strong {
+        color: #303133;
+      }
+      .preview-spot-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .preview-spot {
+        overflow: hidden;
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+      }
+      .preview-spot img {
+        display: block;
+        width: 100%;
+        height: 92px;
+        object-fit: cover;
+        background: #eaf1ef;
+      }
+      .preview-spot-body {
+        padding: 10px;
+      }
+      .preview-spot-body strong {
+        display: block;
+        margin-bottom: 4px;
+        color: #303133;
+      }
+      .preview-spot-body p {
+        margin: 5px 0 0;
+        white-space: pre-wrap;
+      }
+      .trip-readonly {
+        display: grid;
+        gap: 20px;
+      }
+      .trip-readonly-header {
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .trip-readonly-header h2 {
+        margin: 0 0 6px;
+        color: #303133;
+      }
+      .trip-readonly-summary {
+        margin: 0;
+        white-space: pre-wrap;
+      }
+      .trip-readonly-price {
+        margin: 12px 0 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--primary);
+      }
+      .trip-readonly-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 14px;
+        align-items: center;
+        color: var(--muted);
+      }
+      .trip-readonly-section {
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .trip-readonly-section:last-child {
+        padding-bottom: 0;
+        border-bottom: 0;
+      }
+      .trip-readonly-section h3 {
+        margin: 0 0 12px;
+        font-size: 15px;
+        color: #303133;
+      }
+      .trip-readonly-richtext,
+      .trip-readonly-comment,
+      .read-only-note,
+      .read-only-extra-fee p,
+      .read-only-spot p {
+        margin: 0;
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+      }
+      .trip-readonly-comment {
+        margin-top: 10px;
+        color: var(--muted);
+      }
+      .read-only-photo-cover {
+        margin-bottom: 12px;
+      }
+      .read-only-photo-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .read-only-photo-card {
+        position: relative;
+        margin: 0;
+        overflow: hidden;
+        background: #fafafa;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+      }
+      .read-only-photo-card figcaption {
+        padding: 7px 9px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .trip-readonly-photo {
+        display: block;
+        width: 100%;
+        height: 118px;
+        object-fit: cover;
+        background: #eaf1ef;
+      }
+      .read-only-photo-cover .trip-readonly-photo {
+        height: 180px;
+      }
+      .trip-readonly-photo--placeholder {
+        display: grid;
+        place-items: center;
+      }
+      .trip-readonly-photo--placeholder .cover {
+        width: 100%;
+        height: 100%;
+      }
+      .read-only-day {
+        padding: 16px;
+        margin-top: 12px;
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--primary);
+        border-radius: 5px;
+      }
+      .read-only-day:first-child {
+        margin-top: 0;
+      }
+      .read-only-day-header {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        justify-content: space-between;
+      }
+      .read-only-day-header h4 {
+        margin: 0;
+        color: #303133;
+      }
+      .read-only-extra-fee {
+        padding: 10px 12px;
+        margin-top: 12px;
+        color: #7c5c12;
+        background: #fdf6ec;
+        border: 1px solid #faecd8;
+        border-radius: 4px;
+      }
+      .read-only-extra-fee strong {
+        display: block;
+        margin-bottom: 3px;
+        font-size: 12px;
+      }
+      .read-only-facts,
+      .read-only-departure-facts {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px 16px;
+        padding: 12px 0;
+        margin: 12px 0;
+        border-top: 1px solid #f0f0f0;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      .read-only-fact dt,
+      .read-only-departure-fact dt {
+        margin-bottom: 3px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .read-only-fact dd,
+      .read-only-departure-fact dd {
+        margin: 0;
+        color: #303133;
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+      }
+      .read-only-note {
+        padding: 10px 12px;
+        margin-top: 12px;
+        color: var(--muted);
+        background: #fafafa;
+        border-left: 3px solid #cdd0d6;
+      }
+      .read-only-note strong {
+        color: #606266;
+      }
+      .read-only-spots {
+        padding-top: 14px;
+        margin-top: 14px;
+        border-top: 1px solid #f0f0f0;
+      }
+      .read-only-spots h5 {
+        margin: 0 0 10px;
+        font-size: 13px;
+        color: #606266;
+      }
+      .read-only-spot-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .read-only-spot {
+        overflow: hidden;
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+      }
+      .read-only-spot-image {
+        display: block;
+        width: 100%;
+        height: 112px;
+        object-fit: cover;
+        background: #eaf1ef;
+      }
+      .read-only-spot-image--placeholder {
+        display: grid;
+        place-items: center;
+      }
+      .read-only-spot-body {
+        padding: 10px;
+      }
+      .read-only-spot-title {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin-bottom: 5px;
+      }
+      .read-only-spot-title strong {
+        color: #303133;
+      }
+      .read-only-spot-order {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        font-size: 12px;
+        color: var(--primary);
+        background: var(--light);
+        border-radius: 50%;
+      }
+      .read-only-departures {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .read-only-departure {
+        padding: 12px;
+        background: #fafafa;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+      }
+      .read-only-departure strong {
+        display: block;
+        margin-bottom: 8px;
+        color: #303133;
+      }
       .toast {
         position: fixed;
         top: 22px;
@@ -487,6 +1217,37 @@
         color: var(--text);
         border: 1px solid var(--border);
         border-radius: 6px;
+      }
+      dialog.trip-detail-dialog[open] {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        width: min(1180px, calc(100vw - 48px));
+        max-width: none;
+        max-height: calc(100dvh - 40px);
+        padding: 0;
+        overflow: hidden;
+      }
+      .dialog-header {
+        padding-bottom: 20px;
+      }
+      .dialog-header h2 {
+        margin: 0;
+      }
+      dialog.trip-detail-dialog .dialog-header {
+        padding: 20px 24px;
+        background: #ffffff;
+        border-bottom: 1px solid var(--border);
+      }
+      dialog.trip-detail-dialog #dialog-body {
+        min-height: 0;
+        padding: 24px;
+        overflow: hidden auto;
+      }
+      dialog.trip-detail-dialog .dialog-footer {
+        padding: 14px 24px 20px;
+        margin: 0;
+        background: #ffffff;
+        border-top: 1px solid var(--border);
       }
       .info {
         padding: 10px 14px;
@@ -524,7 +1285,8 @@
         padding: 4px;
         border: 2px solid var(--primary);
       }
-      .photo-item img {
+      .photo-item img,
+      .photo-item svg {
         display: block;
         width: 150px;
         height: 95px;
@@ -537,6 +1299,20 @@
         padding: 5px 0;
         font-size: 12px;
         border: 0;
+      }
+      .photo-actions {
+        display: flex;
+        gap: 4px;
+        margin-top: 4px;
+      }
+      .photo-actions button {
+        flex: 1;
+        width: auto;
+        white-space: nowrap;
+      }
+      .photo-actions .danger {
+        color: #f56c6c;
+        background: #fef0f0;
       }
       .cover-badge {
         position: absolute;
@@ -738,6 +1514,108 @@
         .user-summary {
           grid-template-columns: repeat(2, 1fr);
         }
+        .departure-fields,
+        .preview-facts,
+        .preview-spot-grid,
+        .read-only-facts,
+        .read-only-departure-facts,
+        .read-only-departures {
+          grid-template-columns: 1fr;
+        }
+        .read-only-photo-grid,
+        .read-only-spot-grid {
+          grid-template-columns: 1fr;
+        }
+        dialog.trip-detail-dialog[open] {
+          width: calc(100vw - 24px);
+          max-height: calc(100dvh - 24px);
+        }
+      }
+
+      @media (width <=650px) {
+        aside {
+          position: static;
+          width: 100%;
+          border-right: 0;
+          border-bottom: 1px solid var(--border);
+        }
+        .logo {
+          justify-content: flex-start;
+          padding: 0 16px;
+        }
+        .menu {
+          flex-flow: row wrap;
+        }
+        .menu > button,
+        .menu .child {
+          width: 50%;
+        }
+        .menu > button {
+          height: 44px;
+          padding: 0 16px;
+        }
+        .menu .child {
+          height: 40px;
+          padding-left: 30px;
+        }
+        .shell {
+          margin-left: 0;
+        }
+        .steps {
+          justify-content: flex-start;
+          max-width: 100%;
+          overflow-x: auto;
+        }
+        .steps button {
+          flex: 0 0 92px;
+          white-space: normal;
+        }
+        .day-fields {
+          grid-template-columns: 1fr;
+        }
+        .day-field--full {
+          grid-column: auto;
+        }
+        .spot-card {
+          flex-wrap: wrap;
+        }
+        .spot-content {
+          flex-basis: calc(100% - 48px);
+        }
+        .spot-actions {
+          justify-content: flex-start;
+          width: 100%;
+        }
+        .preview-header {
+          flex-direction: column;
+        }
+        .departure-carousel-nav {
+          justify-content: space-between;
+        }
+        .departure-group-header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .departure-group-title {
+          flex-wrap: wrap;
+        }
+        .departure-group-actions {
+          justify-content: flex-end;
+          width: 100%;
+        }
+        dialog.trip-detail-dialog[open] {
+          width: calc(100vw - 16px);
+          max-height: calc(100dvh - 16px);
+        }
+        dialog.trip-detail-dialog .dialog-header {
+          padding: 14px 16px;
+        }
+        dialog.trip-detail-dialog #dialog-body {
+          padding: 16px;
+        }
+        dialog.trip-detail-dialog .dialog-footer {
+          padding: 12px 16px 16px;
+        }
       }
       /* stylelint-enable declaration-block-single-line-max-declarations */
     </style>
@@ -829,6 +1707,58 @@
             </div>
           </div>
         </section>
+        <section id="departure-view" hidden>
+          <form class="card search" id="departure-search">
+            <div class="filter">
+              <label for="departure-keyword">關鍵字：</label
+              ><input id="departure-keyword" placeholder="行程名稱、梯次 ID 或集合地點" />
+            </div>
+            <div class="filter">
+              <label for="departure-filter-status">梯次狀態：</label
+              ><select id="departure-filter-status">
+                <option value="">全部狀態</option>
+                <option value="OPEN">開放報名</option>
+                <option value="DRAFT">草稿</option>
+                <option value="CLOSED">停止報名</option>
+                <option value="CANCELLED">已取消</option>
+                <option value="SOLD_OUT">已額滿</option>
+                <option value="DEPARTED">已出發</option>
+                <option value="COMPLETED">已結束</option>
+              </select>
+            </div>
+            <div class="filter">
+              <label for="departure-from-date">出發日起：</label><input id="departure-from-date" type="date" />
+            </div>
+            <div class="search-actions">
+              <button class="primary" type="submit">⌕ 搜尋</button><button type="reset">↺ 重置</button>
+            </div>
+          </form>
+          <div class="card">
+            <div class="toolbar">
+              <div>
+                <h1>出發梯次</h1>
+                <button class="primary" id="create-departure">＋ 新增梯次</button>
+              </div>
+              <button class="circle" id="departure-refresh" aria-label="重新整理梯次列表">↻</button>
+            </div>
+            <div class="departure-scope-tabs" role="tablist" aria-label="梯次範圍">
+              <button type="button" class="selected" id="departure-scope-active" role="tab" aria-selected="true">
+                進行中 <span></span>
+              </button>
+              <button type="button" id="departure-scope-history" role="tab" aria-selected="false">歷史梯次 <span></span></button>
+              <button type="button" id="departure-scope-all" role="tab" aria-selected="false">全部 <span></span></button>
+            </div>
+            <div id="departure-rows" class="departure-groups"></div>
+            <p class="pending">
+              預設顯示進行中梯次；結束或取消的歷史梯次保留查詢與詳情，並鎖定編輯、刪除與販售狀態操作。已占用與剩餘名額由有效
+              OrderItems 推導；完整 TripDeparture Contract 仍待 Backend 與 DB 採納。
+            </p>
+            <div class="pagination">
+              <span id="departure-total"></span><span>10 筆 / 頁</span><button disabled aria-label="上一頁">‹</button
+              ><button class="primary" aria-current="page">1</button><button disabled aria-label="下一頁">›</button>
+            </div>
+          </div>
+        </section>
         <section id="form-view" hidden>
           <div class="card">
             <div class="toolbar">
@@ -840,6 +1770,7 @@
             </div>
             <p class="note">填寫旅遊商品資料，確認內容後即可預覽與上架。此原型資料僅保留於本次頁面。</p>
             <nav class="steps" aria-label="行程編輯步驟" id="steps"></nav>
+            <div id="step-error" class="step-error" role="alert" hidden></div>
             <form id="trip-form">
               <div class="form-body">
                 <section data-step="0">
@@ -856,18 +1787,18 @@
                     <label for="price"><span class="required">* </span>售價（TWD）</label
                     ><input id="price" type="number" min="1" required placeholder="請輸入每人售價" />
                   </div>
-                </section>
-                <section data-step="1" hidden>
-                  <h2>行程內容</h2>
                   <div class="field">
-                    <label for="content">詳細內容</label
-                    ><textarea id="content" placeholder="完整描述行程內容、每日安排與服務"></textarea>
+                    <label for="content">商品總體介紹</label>
+                    <div>
+                      <textarea id="content" placeholder="介紹整體商品特色、服務內容與旅遊亮點"></textarea>
+                      <p class="help">trip.content 僅保存整體商品介紹，不再儲存 DAY 1 / DAY 2 每日內容。</p>
+                    </div>
                   </div>
                   <div class="field">
                     <label for="comment">備註</label><textarea id="comment" placeholder="提供旅客或內部作業的補充備註"></textarea>
                   </div>
                 </section>
-                <section data-step="2" hidden>
+                <section data-step="1" hidden>
                   <h2>行程圖片</h2>
                   <p class="info">
                     目前可確認 Trip 1:N TripPhoto 關係；trip_photo 的兩個 VARCHAR 欄位名稱需待 Backend API Contract 確認。下方
@@ -883,28 +1814,70 @@
                     </div>
                   </div>
                 </section>
+                <section data-step="2" hidden>
+                  <h2>每日行程</h2>
+                  <p class="info">
+                    商品每日行程採 proposed model：trip 1:N tour_product_days，tour_product_days 1:N tour_day_spots。這是
+                    prototype / proposed Backend Contract，不建立真正 DB schema。
+                  </p>
+                  <div class="departure-carousel-nav" aria-label="切換每日行程">
+                    <button type="button" id="day-prev">‹ 上一天</button>
+                    <span id="day-position">尚無行程</span>
+                    <button type="button" id="day-next">下一天 ›</button>
+                  </div>
+                  <div id="itinerary-builder" class="itinerary-list"></div>
+                  <div class="itinerary-actions"><button type="button" id="add-day">＋ 新增一天</button></div>
+                </section>
                 <section data-step="3" hidden>
                   <h2>出發梯次</h2>
-                  <div class="info">TripDeparture[] derived value：列表的梯次數由出發梯次陣列計算。</div>
+                  <div class="info">
+                    每個梯次是一個可獨立販售的批次，可設定時間、時區、售價、報名期間、名額與集合資訊。已占用與剩餘名額由有效訂單即時計算；結束或取消的歷史梯次保留查看並鎖定編輯。日期變更會保留目前編輯內容，若回程不晚於出發會顯示提示並可直接修正。
+                  </div>
                   <div class="pending">
-                    目前 ERD 的 trip_departure 僅有 start_time / end_time，尚無出發日期與回程日期。跨日旅遊梯次所需 DATE/TIMESTAMP
-                    欄位需待 Backend Contract 確認。
+                    Prototype recommendation：目前 ERD 僅確認 start_time / end_time / capacity；其餘 TripDeparture 欄位仍需
+                    Backend 與 DB 採納。
                   </div>
-                  <div class="field"><label for="start-time">開始時間</label><input id="start-time" type="time" /></div>
-                  <div class="field"><label for="end-time">結束時間</label><input id="end-time" type="time" /></div>
-                  <div class="field">
-                    <label for="capacity">名額</label><input id="capacity" type="number" min="1" value="20" />
+                  <div class="departure-carousel-nav" aria-label="切換出發梯次">
+                    <button type="button" id="departure-prev">‹ 上一梯次</button>
+                    <span id="departure-position">尚無梯次</span>
+                    <button type="button" id="departure-next">下一梯次 ›</button>
                   </div>
+                  <div id="departure-editor" class="departure-list"></div>
+                  <div class="itinerary-actions"><button type="button" id="add-departure">＋ 新增出發梯次</button></div>
                 </section>
                 <section data-step="4" hidden>
+                  <h2>販售設定</h2>
+                  <div class="info">
+                    行程上架代表商品可在前台看到；只要有一個有效且有剩餘名額的未結束梯次即可先上架。若報名開始日尚未到，梯次會顯示「尚未開放」，到開始時間才接受報名。
+                  </div>
+                  <div class="field">
+                    <label for="form-status">上架狀態</label>
+                    <div>
+                      <select id="form-status">
+                        <option value="DRAFT">草稿</option>
+                        <option value="PUBLISHED">已上架</option>
+                        <option value="UNPUBLISHED">已下架</option>
+                        <option value="ARCHIVED">已封存</option>
+                      </select>
+                      <p class="help">
+                        status 仍為 Pending Backend Contract；只有 PUBLISHED 表示前台可看到商品，不新增 is_purchasable
+                        欄位。梯次是否能立即報名仍由報名期間判定。
+                      </p>
+                    </div>
+                  </div>
+                  <div class="pending">
+                    販售設定僅保留 publication status prototype，不包含促銷、折扣、Coupon 或庫存 reservation。
+                  </div>
+                </section>
+                <section data-step="5" hidden>
                   <h2>預覽與上架</h2>
-                  <div id="summary-preview" class="summary"></div>
+                  <div id="summary-preview" class="preview-shell"></div>
                   <div class="pending">目前 trip ERD 尚無 publication status 欄位，此狀態為 Pending Backend Contract。</div>
-                  <p class="help">Save Draft / Publish 為 Prototype only，尚未對應 DB persistence。</p>
+                  <p class="help">儲存草稿／確認上架為 Prototype only，尚未對應 DB persistence。</p>
                 </section>
                 <section class="pending" style="margin-top: 24px">
-                  <strong>待後端確認</strong>：destination／trip_location 詳細結構、trip duration、meeting
-                  place，以及跨日梯次日期欄位。
+                  <strong>待後端確認</strong>：destination／trip_location 詳細結構、trip duration，以及本原型建議的完整
+                  TripDeparture 販售欄位。
                 </section>
               </div>
               <div class="form-footer">
@@ -1123,7 +2096,7 @@
       <footer>Geeker Admin · Travel Admin　<span class="muted">|　行程管理 UI/UX review · 模擬資料</span></footer>
     </div>
     <dialog id="dialog">
-      <h2 id="dialog-title"></h2>
+      <div class="dialog-header"><h2 id="dialog-title"></h2></div>
       <div id="dialog-body"></div>
       <div class="dialog-footer"><button id="close-dialog">關閉</button></div>
     </dialog>
@@ -1140,28 +2113,132 @@
     <script>
       "use strict";
       const $ = id => document.getElementById(id),
-        labels = { DRAFT: "草稿", PUBLISHED: "已上架", UNPUBLISHED: "已下架", ARCHIVED: "已封存" };
-      const names = ["基本資料", "行程內容", "圖片", "出發梯次", "預覽與上架"];
+        labels = { DRAFT: "草稿", PUBLISHED: "已上架", UNPUBLISHED: "已下架", ARCHIVED: "已封存" },
+        departureStatusLabels = { DRAFT: "草稿", OPEN: "開放報名", CLOSED: "停止報名", CANCELLED: "已取消" },
+        prototypeNow = new Date("2026-09-06T12:00:00+08:00");
+      const names = ["基本資料", "行程圖片", "每日行程", "出發梯次", "販售設定", "預覽與上架"];
       // Canonical mock Trip fields mirror the ERD. status is prototype-only pending backend contract.
       const trips = [
         {
           id: 1,
           name: "京都嵐山・古都慢旅五日",
           summary: "竹林、寺院與職人風景，慢慢走進京都日常。",
-          content: "Day 1 抵達京都；Day 2 嵐山竹林與金閣寺；Day 3 茶道與町家散策；Day 4 宇治；Day 5 賦歸。",
+          content: "以京都為舞台，安排古都街區、寺院文化、職人手作與季節風景，讓旅客用舒適節奏深入認識城市。",
           comment: "含專業中文導覽與交通票券。",
           price: 36800,
           createdAt: "2026-08-12 09:30:00",
           updatedAt: "2026-09-04 14:20:00",
           departures: [
-            { id: 101, startTime: "08:30", endTime: "18:00", capacity: 20 },
-            { id: 102, startTime: "09:00", endTime: "17:30", capacity: 18 }
+            {
+              id: 101,
+              startAt: "2026-10-03T08:30",
+              endAt: "2026-10-07T18:00",
+              timeZone: "Asia/Taipei",
+              capacity: 20,
+              price: 36800,
+              status: "OPEN",
+              bookingOpenAt: "2026-08-01T09:00",
+              bookingCloseAt: "2026-09-28T23:59",
+              meetingPlace: "桃園國際機場第一航廈 6 號集合櫃檯",
+              note: "請於起飛前三小時完成報到。",
+              createdAt: "2026-08-12 09:40:00",
+              updatedAt: "2026-09-04 14:20:00"
+            },
+            {
+              id: 102,
+              startAt: "2026-11-14T09:00",
+              endAt: "2026-11-18T17:30",
+              timeZone: "Asia/Taipei",
+              capacity: 18,
+              price: 38800,
+              status: "OPEN",
+              bookingOpenAt: "2026-08-15T09:00",
+              bookingCloseAt: "2026-11-08T23:59",
+              meetingPlace: "桃園國際機場第二航廈 3 樓出境大廳",
+              note: "楓葉季加價梯次。",
+              createdAt: "2026-08-15 09:00:00",
+              updatedAt: "2026-09-03 11:15:00"
+            }
           ],
           photos: [
             { id: 1001, color: "#88a6a0", isCover: true },
             { id: 1002, color: "#6d8e91", isCover: false }
           ],
-          status: "PUBLISHED"
+          status: "PUBLISHED",
+          tourProductDays: [
+            {
+              id: 1101,
+              tripId: 1,
+              dayNumber: 1,
+              title: "台北 → 關西空港 → 京都入住",
+              extraFeeNote: "嚴島神社 ¥300、宮島渡輪（旅客搭乘來回）¥400",
+              breakfast: "溫暖的家",
+              lunch: "機上精緻餐食",
+              dinner: "京都町家風味料理",
+              hotel: "京都四條烏丸飯店或同級",
+              note: "抵達後保留充足休息時間，晚餐依航班時間彈性調整。",
+              spots: [
+                {
+                  id: 1111,
+                  tourDayId: 1101,
+                  name: "關西空港接送",
+                  description: "專車接送前往京都飯店，沿途由導遊介紹關西地區。",
+                  imageUrl: "",
+                  tag: "專車接送",
+                  sortOrder: 1
+                },
+                {
+                  id: 1112,
+                  tourDayId: 1101,
+                  name: "祇園白川散策",
+                  description: "傍晚沿白川南通散步，感受京都町家與石板街道。",
+                  imageUrl: "",
+                  tag: "下車參觀",
+                  sortOrder: 2
+                }
+              ]
+            },
+            {
+              id: 1102,
+              tripId: 1,
+              dayNumber: 2,
+              title: "嵐山竹林 → 金閣寺 → 茶道體驗",
+              breakfast: "飯店內早餐",
+              lunch: "湯豆腐御膳",
+              dinner: "方便遊玩～敬請自理",
+              hotel: "京都四條烏丸飯店或同級",
+              note: "季節限定景點依現場開放狀況調整。",
+              spots: [
+                {
+                  id: 1121,
+                  tourDayId: 1102,
+                  name: "嵐山竹林小徑",
+                  description: "漫步竹林小徑與渡月橋，享受京都西郊的清幽景致。",
+                  imageUrl: "",
+                  tag: "特別安排",
+                  sortOrder: 1
+                },
+                {
+                  id: 1122,
+                  tourDayId: 1102,
+                  name: "金閣寺",
+                  description: "參觀金箔覆面的鹿苑寺舍利殿與庭園景觀。",
+                  imageUrl: "",
+                  tag: "入內參觀",
+                  sortOrder: 2
+                },
+                {
+                  id: 1123,
+                  tourDayId: 1102,
+                  name: "宇治抹茶茶道體驗",
+                  description: "由職人帶領認識抹茶文化，體驗傳統茶席禮儀。",
+                  imageUrl: "",
+                  tag: "文化體驗",
+                  sortOrder: 3
+                }
+              ]
+            }
+          ]
         },
         {
           id: 2,
@@ -1172,12 +2249,52 @@
           price: 42900,
           createdAt: "2026-08-15 10:10:00",
           updatedAt: "2026-09-03 16:45:00",
-          departures: [{ id: 201, startTime: "07:40", endTime: "19:00", capacity: 24 }],
+          departures: [
+            {
+              id: 201,
+              startAt: "2026-10-12T07:40",
+              endAt: "2026-10-17T19:00",
+              timeZone: "Asia/Taipei",
+              capacity: 24,
+              price: 42900,
+              status: "OPEN",
+              bookingOpenAt: "2026-08-10T09:00",
+              bookingCloseAt: "2026-10-05T18:00",
+              meetingPlace: "桃園國際機場第二航廈 18 號櫃檯",
+              note: "請攜帶保暖外套。",
+              createdAt: "2026-08-15 10:20:00",
+              updatedAt: "2026-09-03 16:45:00"
+            }
+          ],
           photos: [
             { id: 2001, color: "#a99ebd", isCover: true },
             { id: 2002, color: "#8698b1", isCover: false }
           ],
-          status: "PUBLISHED"
+          status: "PUBLISHED",
+          tourProductDays: [
+            {
+              id: 2101,
+              tripId: 2,
+              dayNumber: 1,
+              title: "札幌集合 → 美瑛花田巡遊",
+              breakfast: "飯店內早餐",
+              lunch: "北海道在地餐桌",
+              dinner: "溫泉旅館會席料理",
+              hotel: "美瑛溫泉飯店或同級",
+              note: "花況依季節與自然狀況調整。",
+              spots: [
+                {
+                  id: 2111,
+                  tourDayId: 2101,
+                  name: "四季彩之丘",
+                  description: "欣賞丘陵花田與北海道開闊景色。",
+                  imageUrl: "",
+                  tag: "入內參觀",
+                  sortOrder: 1
+                }
+              ]
+            }
+          ]
         },
         {
           id: 3,
@@ -1188,9 +2305,49 @@
           price: 8900,
           createdAt: "2026-08-22 11:05:00",
           updatedAt: "2026-09-02 10:30:00",
-          departures: [{ id: 301, startTime: "10:00", endTime: "16:30", capacity: 16 }],
+          departures: [
+            {
+              id: 301,
+              startAt: "2026-11-06T10:00",
+              endAt: "2026-11-08T16:30",
+              timeZone: "Asia/Taipei",
+              capacity: 1,
+              price: 8900,
+              status: "OPEN",
+              bookingOpenAt: "2026-08-25T09:00",
+              bookingCloseAt: "2026-11-02T18:00",
+              meetingPlace: "花蓮火車站東出口旅遊服務中心",
+              note: "此筆用來展示由訂單推導的已額滿狀態。",
+              createdAt: "2026-08-22 11:15:00",
+              updatedAt: "2026-09-02 10:30:00"
+            }
+          ],
           photos: [{ id: 3001, color: "#72a5b6", isCover: true }],
-          status: "DRAFT"
+          status: "DRAFT",
+          tourProductDays: [
+            {
+              id: 3101,
+              tripId: 3,
+              dayNumber: 1,
+              title: "花蓮市區 → 縱谷慢遊",
+              breakfast: "溫暖的家",
+              lunch: "在地小吃",
+              dinner: "瑞穗風味晚餐",
+              hotel: "瑞穗溫泉旅店或同級",
+              note: "保留自由探索時間。",
+              spots: [
+                {
+                  id: 3111,
+                  tourDayId: 3101,
+                  name: "花蓮文創園區",
+                  description: "走訪老建築與在地創意店家。",
+                  imageUrl: "",
+                  tag: "自由散策",
+                  sortOrder: 1
+                }
+              ]
+            }
+          ]
         },
         {
           id: 4,
@@ -1201,9 +2358,49 @@
           price: 25900,
           createdAt: "2026-08-18 15:20:00",
           updatedAt: "2026-09-01 09:15:00",
-          departures: [{ id: 401, startTime: "09:30", endTime: "20:00", capacity: 20 }],
+          departures: [
+            {
+              id: 401,
+              startAt: "2026-12-03T09:30",
+              endAt: "2026-12-06T20:00",
+              timeZone: "Asia/Taipei",
+              capacity: 20,
+              price: 25900,
+              status: "CANCELLED",
+              bookingOpenAt: "2026-08-20T09:00",
+              bookingCloseAt: "2026-11-25T18:00",
+              meetingPlace: "桃園國際機場第一航廈北會面點",
+              note: "航班異動，示範已有訂單時保留梯次並取消。",
+              createdAt: "2026-08-18 15:30:00",
+              updatedAt: "2026-09-01 09:15:00"
+            }
+          ],
           photos: [{ id: 4001, color: "#bd9c89", isCover: true }],
-          status: "UNPUBLISHED"
+          status: "UNPUBLISHED",
+          tourProductDays: [
+            {
+              id: 4101,
+              tripId: 4,
+              dayNumber: 1,
+              title: "北村韓屋 → 益善洞文創街區",
+              breakfast: "飯店內早餐",
+              lunch: "廣藏市場美食",
+              dinner: "韓式烤肉",
+              hotel: "首爾市區飯店或同級",
+              note: "步行路段請穿著舒適鞋款。",
+              spots: [
+                {
+                  id: 4111,
+                  tourDayId: 4101,
+                  name: "北村韓屋村",
+                  description: "沿著巷弄欣賞傳統韓屋與城市景觀。",
+                  imageUrl: "",
+                  tag: "文化走讀",
+                  sortOrder: 1
+                }
+              ]
+            }
+          ]
         },
         {
           id: 5,
@@ -1216,7 +2413,8 @@
           updatedAt: "2026-08-28 17:00:00",
           departures: [],
           photos: [{ id: 5001, color: "#799d7b", isCover: true }],
-          status: "ARCHIVED"
+          status: "ARCHIVED",
+          tourProductDays: []
         },
         {
           id: 6,
@@ -1228,19 +2426,77 @@
           createdAt: "2026-09-01 13:10:00",
           updatedAt: "2026-09-05 14:20:00",
           departures: [
-            { id: 601, startTime: "08:00", endTime: "17:00", capacity: 22 },
-            { id: 602, startTime: "08:30", endTime: "17:30", capacity: 22 }
+            {
+              id: 601,
+              startAt: "2026-07-18T08:00",
+              endAt: "2026-07-20T17:00",
+              timeZone: "Asia/Taipei",
+              capacity: 22,
+              price: 12800,
+              status: "CLOSED",
+              bookingOpenAt: "2026-05-01T09:00",
+              bookingCloseAt: "2026-07-12T18:00",
+              meetingPlace: "馬公港旅客服務中心",
+              note: "歷史梯次。",
+              createdAt: "2026-05-01 09:00:00",
+              updatedAt: "2026-07-21 09:00:00"
+            },
+            {
+              id: 602,
+              startAt: "2026-08-22T08:30",
+              endAt: "2026-08-24T17:30",
+              timeZone: "Asia/Taipei",
+              capacity: 22,
+              price: 13800,
+              status: "OPEN",
+              bookingOpenAt: "2026-06-15T09:00",
+              bookingCloseAt: "2026-08-16T18:00",
+              meetingPlace: "馬公港旅客服務中心",
+              note: "暑假旺季梯次。",
+              createdAt: "2026-06-15 09:00:00",
+              updatedAt: "2026-08-25 09:00:00"
+            }
           ],
           photos: [
             { id: 6001, color: "#79b5c3", isCover: true },
             { id: 6002, color: "#608da0", isCover: false }
           ],
-          status: "DRAFT"
+          status: "DRAFT",
+          tourProductDays: [
+            {
+              id: 6101,
+              tripId: 6,
+              dayNumber: 1,
+              title: "馬公 → 離島巡航 → 老街散策",
+              breakfast: "飯店內早餐",
+              lunch: "海鮮風味餐",
+              dinner: "澎湖小吃自由享用",
+              hotel: "澎湖海景旅店或同級",
+              note: "船班與海上活動依當日海象調整。",
+              spots: [
+                {
+                  id: 6111,
+                  tourDayId: 6101,
+                  name: "七美望安巡航",
+                  description: "搭船欣賞澎湖群島海岸線與島嶼景觀。",
+                  imageUrl: "",
+                  tag: "海上活動",
+                  sortOrder: 1
+                }
+              ]
+            }
+          ]
         }
       ];
       let step = 0,
         editing = null,
+        formReturnView = "trip",
+        departureScope = "active",
+        activeDayIndex = 0,
+        activeDepartureIndex = 0,
         photoState = [],
+        itineraryState = [],
+        departureState = [],
         toastTimer,
         currentUserId = null;
       // Relational purchase mock: users -> orders -> orderItems -> trips/departures;
@@ -1500,7 +2756,7 @@
           rows
             .map(t => {
               const cover = t.photos.find(p => p.isCover) || t.photos[0];
-              return `<tr><td>${cover ? photoMarkup(cover, `${t.name}封面`) : '<span class="note">未設定</span>'}</td><td class="trip-name">${esc(t.name)}<small>${esc(t.summary)} · TRIP-${String(t.id).padStart(3, "0")}</small></td><td>NT$ ${t.price.toLocaleString()}</td><td>${t.departures.length}</td><td><span class="tag ${t.status}" title="${t.status}">${labels[t.status]}</span></td><td class="date">${esc(t.createdAt)}</td><td class="date">${esc(t.updatedAt)}</td><td class="actions"><div><button class="link" data-id="${t.id}" data-action="detail">詳情</button><button class="link warning" data-id="${t.id}" data-action="edit">編輯</button><button class="link" data-id="${t.id}" data-action="depart">管理梯次</button></div><div><button class="link ${t.status === "PUBLISHED" ? "danger" : ""}" data-id="${t.id}" data-action="status" ${t.status === "ARCHIVED" ? 'disabled title="已封存行程不可上架"' : ""}>${t.status === "PUBLISHED" ? "下架" : "上架"}</button></div></td></tr>`;
+              return `<tr><td>${cover ? photoMarkup(cover, `${t.name}封面`) : '<span class="note">未設定</span>'}</td><td class="trip-name">${esc(t.name)}<small>${esc(t.summary)} · TRIP-${String(t.id).padStart(3, "0")} · ${t.tourProductDays?.length || 0} 天行程</small></td><td>NT$ ${(t.price || 0).toLocaleString()}</td><td>${t.departures.length}</td><td><span class="tag ${t.status}" title="${t.status}">${labels[t.status]}</span></td><td class="date">${esc(t.createdAt)}</td><td class="date">${esc(t.updatedAt)}</td><td class="actions"><div><button class="link" data-id="${t.id}" data-action="detail">詳情</button><button class="link warning" data-id="${t.id}" data-action="edit">編輯</button><button class="link" data-id="${t.id}" data-action="depart">管理梯次</button></div><div><button class="link ${t.status === "PUBLISHED" ? "danger" : ""}" data-id="${t.id}" data-action="status" ${t.status === "ARCHIVED" ? 'disabled title="已封存行程不可上架"' : ""}>${t.status === "PUBLISHED" ? "下架" : "上架"}</button></div></td></tr>`;
             })
             .join("") || '<tr><td colspan="8" style="height:300px;color:#909399">暫無資料，請調整搜尋條件</td></tr>';
         $("total").textContent = `共 ${rows.length} 筆`;
@@ -1517,8 +2773,659 @@
         setActive("trip");
         render();
       }
+      function departureIsHistorical(departure) {
+        const start = parseDepartureDate(departure.startAt),
+          end = parseDepartureDate(departure.endAt);
+        return departure.status === "CANCELLED" || Boolean(start && end && end >= start && end <= prototypeNow);
+      }
+      function departureScopeCounts() {
+        const all = allDepartures().map(item => item.departure);
+        return {
+          active: all.filter(departure => !departureIsHistorical(departure)).length,
+          history: all.filter(departure => departureIsHistorical(departure)).length,
+          all: all.length
+        };
+      }
+      function updateDepartureScopeTabs() {
+        const counts = departureScopeCounts();
+        [
+          ["active", "departure-scope-active"],
+          ["history", "departure-scope-history"],
+          ["all", "departure-scope-all"]
+        ].forEach(([scope, id]) => {
+          const button = $(id);
+          button.classList.toggle("selected", departureScope === scope);
+          button.setAttribute("aria-selected", String(departureScope === scope));
+          button.querySelector("span").textContent = counts[scope];
+        });
+      }
+      function departureFilterKey(departure) {
+        const label = departureAvailability(departure).label;
+        if (label === "已額滿") return "SOLD_OUT";
+        if (label === "已出發") return "DEPARTED";
+        if (label === "已結束") return "COMPLETED";
+        return departure.status;
+      }
+      function allDepartures() {
+        return trips.flatMap(trip => trip.departures.map(departure => ({ trip, departure })));
+      }
+      function updateDepartureGroupControls() {
+        document.querySelectorAll("[data-departure-group]").forEach(group => {
+          const track = group.querySelector(".departure-group-track"),
+            canScroll = track.scrollWidth > track.clientWidth + 2;
+          group.querySelectorAll('[data-departure-page-action="slide"]').forEach(button => (button.disabled = !canScroll));
+        });
+      }
+      function renderDepartures() {
+        const keyword = $("departure-keyword").value.trim().toLowerCase(),
+          status = $("departure-filter-status").value,
+          fromDate = $("departure-from-date").value;
+        const rows = allDepartures().filter(({ trip, departure }) => {
+            const searchable = `${trip.name} ${departure.id} ${departure.meetingPlace || ""}`.toLowerCase();
+            const scopeMatches =
+              departureScope === "all" ||
+              (departureScope === "history" ? departureIsHistorical(departure) : !departureIsHistorical(departure));
+            return (
+              scopeMatches &&
+              (!keyword || searchable.includes(keyword)) &&
+              (!status || departureFilterKey(departure) === status) &&
+              (!fromDate || String(departure.startAt).slice(0, 10) >= fromDate)
+            );
+          }),
+          groups = trips
+            .map(trip => ({ trip, departures: rows.filter(row => row.trip.id === trip.id).map(row => row.departure) }))
+            .filter(group => group.departures.length);
+        $("departure-rows").innerHTML = groups.length
+          ? groups
+              .map(
+                ({ trip, departures }) => `<article class="departure-group" data-departure-group="${trip.id}">
+              <header class="departure-group-header">
+                <div class="departure-group-title"><h2>${esc(trip.name)}</h2><span class="tag ${trip.status}">${esc(labels[trip.status])}</span><span class="note">${departures.length} 個梯次</span></div>
+                <div class="departure-group-actions"><button type="button" aria-label="向左查看 ${esc(trip.name)} 梯次" data-departure-page-action="slide" data-direction="-1" data-trip-id="${trip.id}" ${departures.length < 2 ? "disabled" : ""}>‹</button><button type="button" aria-label="向右查看 ${esc(trip.name)} 梯次" data-departure-page-action="slide" data-direction="1" data-trip-id="${trip.id}" ${departures.length < 2 ? "disabled" : ""}>›</button>${departures.some(departure => !departureIsHistorical(departure)) ? `<button type="button" class="link warning" data-departure-page-action="edit" data-trip-id="${trip.id}">編輯目前梯次</button>` : '<span class="note">歷史資料僅供查看</span>'}</div>
+              </header>
+              <div class="departure-group-track">
+                ${departures
+                  .map(departure => {
+                    const availability = departureAvailability(departure),
+                      bookingClose = parseDepartureDate(departure.bookingCloseAt),
+                      canToggle =
+                        departure.status !== "CANCELLED" &&
+                        !["已出發", "已結束"].includes(availability.label) &&
+                        (departure.status === "OPEN" ||
+                          (availability.remaining > 0 && (!bookingClose || bookingClose > prototypeNow))),
+                      toggleLabel = departure.status === "OPEN" ? "停止報名" : "開放報名";
+                    const historical = departureIsHistorical(departure);
+                    return `<section class="departure-summary-card ${historical ? "is-history" : ""}" data-departure-id="${departure.id}">
+                    <div class="departure-summary-top"><strong>梯次 #${departure.id}</strong>${statusChip(availability.label, availability.tone)}</div>
+                    <div class="departure-summary-time">${esc(formatDateTime(departure.startAt))}<small>至 ${esc(formatDateTime(departure.endAt))} · ${esc(departure.timeZone)}</small></div>
+                    <div class="departure-summary-facts">
+                      <div class="departure-summary-fact"><span>梯次售價</span><strong>NT$ ${Number(departure.price || 0).toLocaleString()}</strong></div>
+                      <div class="departure-summary-fact"><span>名額</span><strong>${availability.occupied} / ${Number(departure.capacity || 0)}，剩 ${availability.remaining}</strong></div>
+                      <div class="departure-summary-fact"><span>報名截止</span><strong>${esc(formatDateTime(departure.bookingCloseAt))}</strong></div>
+                      <div class="departure-summary-fact"><span>集合地點</span><strong>${esc(departure.meetingPlace || "—")}</strong></div>
+                    </div>
+                    <div class="departure-card-actions"><button class="link" data-departure-id="${departure.id}" data-trip-id="${trip.id}" data-departure-page-action="detail">詳情</button>${historical ? '<span class="note">歷史資料僅供查看</span>' : `<button class="link warning" data-trip-id="${trip.id}" data-departure-page-action="edit">編輯</button><button class="link ${departure.status === "OPEN" ? "danger" : ""}" data-departure-id="${departure.id}" data-trip-id="${trip.id}" data-departure-page-action="toggle" ${canToggle ? "" : "disabled"}>${toggleLabel}</button>`}</div>
+                  </section>`;
+                  })
+                  .join("")}
+              </div>
+            </article>`
+              )
+              .join("")
+          : '<div class="empty-state"><strong>暫無符合條件的出發梯次</strong><span>請調整搜尋條件。</span></div>';
+        $("departure-total").textContent = `共 ${rows.length} 個梯次／${groups.length} 個行程`;
+        updateDepartureScopeTabs();
+        requestAnimationFrame(updateDepartureGroupControls);
+      }
+      function showDepartures() {
+        hideViews();
+        $("departure-view").hidden = false;
+        departureScope = "active";
+        $("breadcrumb").textContent = "出發梯次";
+        $("tab-title").textContent = "▣ 出發梯次";
+        setActive("departures");
+        renderDepartures();
+      }
+      function departureDetailMarkup(trip, departure) {
+        const availability = departureAvailability(departure);
+        return `<p><strong>${esc(trip.name)}</strong>　${statusChip(availability.label, availability.tone)}</p><dl class="description-grid"><dt>梯次 ID</dt><dd>${departure.id}</dd><dt>出發時間</dt><dd>${esc(formatDateTime(departure.startAt))}</dd><dt>回程時間</dt><dd>${esc(formatDateTime(departure.endAt))}</dd><dt>時區</dt><dd>${esc(departure.timeZone)}</dd><dt>梯次售價</dt><dd>NT$ ${Number(departure.price || 0).toLocaleString()}</dd><dt>名額</dt><dd>總名額 ${Number(departure.capacity || 0)}／已占用 ${availability.occupied}／剩餘 ${availability.remaining}</dd><dt>報名期間</dt><dd>${esc(formatDateTime(departure.bookingOpenAt))} ～ ${esc(formatDateTime(departure.bookingCloseAt))}</dd><dt>集合地點</dt><dd>${esc(departure.meetingPlace || "—")}</dd><dt>備註</dt><dd>${esc(departure.note || "—")}</dd><dt>建立時間</dt><dd>${esc(departure.createdAt || "—")}</dd><dt>更新時間</dt><dd>${esc(departure.updatedAt || "—")}</dd></dl>`;
+      }
+      function openDepartureTripPicker() {
+        const availableTrips = trips.filter(trip => trip.status !== "ARCHIVED");
+        modal(
+          "新增出發梯次",
+          `<form id="departure-trip-picker"><div class="field"><label for="departure-trip-select">所屬行程</label><select id="departure-trip-select">${availableTrips.map(trip => `<option value="${trip.id}">${esc(trip.name)}</option>`).join("")}</select></div><p class="help">選擇後會進入該行程的「出發梯次」編輯步驟。</p><div class="dialog-footer"><button type="submit" class="primary">下一步</button></div></form>`
+        );
+        $("departure-trip-picker").onsubmit = event => {
+          event.preventDefault();
+          const trip = trips.find(item => item.id === Number($("departure-trip-select").value));
+          $("dialog").close();
+          openForm(trip, "departures");
+          departureState.push(newDeparture());
+          activeDepartureIndex = departureState.length - 1;
+          showStep(3);
+          notify("已新增空白梯次，請完成販售資料");
+        };
+      }
+      function cloneDays(days = []) {
+        return days.map(day => ({
+          ...day,
+          extraFeeNote: String(day.extraFeeNote || ""),
+          spots: (day.spots || []).map(spot => ({ ...spot }))
+        }));
+      }
+      function newDay() {
+        const id = Date.now() + Math.floor(Math.random() * 1000);
+        return {
+          id,
+          tripId: editing,
+          dayNumber: itineraryState.length + 1,
+          title: "",
+          extraFeeNote: "",
+          breakfast: "",
+          lunch: "",
+          dinner: "",
+          hotel: "",
+          note: "",
+          spots: []
+        };
+      }
+      function newDeparture() {
+        return {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          startAt: "",
+          endAt: "",
+          timeZone: "Asia/Taipei",
+          capacity: 20,
+          price: Number($("price")?.value) || 0,
+          status: "DRAFT",
+          bookingOpenAt: "",
+          bookingCloseAt: "",
+          meetingPlace: "",
+          note: "",
+          createdAt: "2026-09-06 14:20:00",
+          updatedAt: "2026-09-06 14:20:00"
+        };
+      }
+      function parseDepartureDate(value) {
+        if (!value) return null;
+        const parsed = new Date(value);
+        return Number.isFinite(parsed.getTime()) ? parsed : null;
+      }
+      function departureDateIssue(departure) {
+        const start = parseDepartureDate(departure.startAt),
+          end = parseDepartureDate(departure.endAt),
+          bookingOpen = parseDepartureDate(departure.bookingOpenAt),
+          bookingClose = parseDepartureDate(departure.bookingCloseAt);
+        if (departure.startAt && !start) return "出發日期時間格式無效";
+        if (departure.endAt && !end) return "回程日期時間格式無效";
+        if (departure.bookingOpenAt && !bookingOpen) return "報名開始時間格式無效";
+        if (departure.bookingCloseAt && !bookingClose) return "報名截止時間格式無效";
+        if (start && end && end <= start) return "回程時間必須晚於出發時間";
+        if (bookingOpen && bookingClose && bookingOpen > bookingClose) return "報名開始時間不可晚於報名截止時間";
+        if (bookingClose && start && bookingClose > start) return "報名截止時間不可晚於梯次出發時間";
+        return "";
+      }
+      function syncItinerary() {
+        itineraryState.forEach((day, dayIndex) => {
+          day.dayNumber = dayIndex + 1;
+          day.spots = day.spots || [];
+          day.spots.forEach((spot, spotIndex) => {
+            spot.tourDayId = day.id;
+            spot.sortOrder = spotIndex + 1;
+          });
+        });
+      }
+      function validatePublishData(data) {
+        const name = String(data.name || "").trim(),
+          summary = String(data.summary || "").trim(),
+          price = Number(data.price),
+          days = data.tourProductDays || [],
+          departures = data.departures || [];
+        const sellableDepartures = departures.filter(departure => !departureIsHistorical(departure));
+        if (!name) return { step: 0, message: "確認上架前請填寫行程名稱" };
+        if (!summary) return { step: 0, message: "確認上架前請填寫行程摘要" };
+        if (!Number.isFinite(price) || price <= 0) return { step: 0, message: "確認上架前請填寫大於 0 的售價" };
+        if (!days.length) return { step: 2, message: "確認上架前至少需要 1 個每日行程" };
+        if (days.some(day => !String(day.title || "").trim())) return { step: 2, message: "每個每日行程都需要填寫路線標題" };
+        if (!departures.length) return { step: 3, message: "確認上架前至少需要 1 個出發梯次" };
+        if (!sellableDepartures.length) return { step: 3, message: "確認上架前至少需要 1 個進行中的梯次" };
+        if (
+          sellableDepartures.some(
+            departure =>
+              !departure.startAt ||
+              !departure.endAt ||
+              !departure.timeZone ||
+              Number(departure.capacity) <= 0 ||
+              Number(departure.price) <= 0
+          )
+        )
+          return { step: 3, message: "每個梯次都需要完整時間、時區，以及大於 0 的售價與名額" };
+        const dateIssue = sellableDepartures.map(departureDateIssue).find(Boolean);
+        if (dateIssue) return { step: 3, message: dateIssue };
+        if (sellableDepartures.some(departure => Number(departure.capacity) < occupiedQuantity(departure.id)))
+          return { step: 3, message: "梯次總名額不可低於有效訂單的已占用名額" };
+        if (!sellableDepartures.some(departureCanBePublished))
+          return { step: 3, message: "確認上架前至少需要 1 個未結束且有剩餘名額的梯次；報名尚未開始的梯次也可以先上架" };
+        return null;
+      }
+      function imageUrl(value) {
+        const valueString = String(value || "").trim();
+        if (!valueString) return "";
+        if (valueString.startsWith("data:image/")) return valueString;
+        try {
+          const url = new URL(valueString);
+          return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+        } catch {
+          return "";
+        }
+      }
+      function spotImageMarkup(spot, alt) {
+        const src = imageUrl(spot.imageUrl);
+        return src
+          ? `<img class="spot-thumb" src="${esc(src)}" alt="${esc(alt)}" />`
+          : '<div class="spot-thumb" role="img" aria-label="尚未設定景點圖片"></div>';
+      }
+      function readOnlyPhotoMarkup(photo, alt) {
+        const src = imageUrl(photo.viewSrc || photo.imageUrl);
+        return src
+          ? `<img class="trip-readonly-photo" src="${esc(src)}" alt="${esc(alt)}" />`
+          : `<div class="trip-readonly-photo trip-readonly-photo--placeholder" role="img" aria-label="${esc(alt)}">${landscape(photo.color || "#88a6a0")}</div>`;
+      }
+      function readOnlySpotImageMarkup(spot, alt) {
+        const src = imageUrl(spot.imageUrl);
+        return src
+          ? `<img class="read-only-spot-image" src="${esc(src)}" alt="${esc(alt)}" />`
+          : '<div class="read-only-spot-image read-only-spot-image--placeholder" role="img" aria-label="尚未設定景點圖片"></div>';
+      }
+      function formatDateTime(value) {
+        return value ? String(value).replace("T", " ") : "—";
+      }
+      function occupiedQuantity(departureId) {
+        const effectiveOrderIds = new Set(orders.filter(order => order.orderStatus === "CONFIRMED").map(order => order.id));
+        return orderItems
+          .filter(item => item.departureId === departureId && effectiveOrderIds.has(item.orderId))
+          .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+      }
+      function departureAvailability(departure) {
+        const occupied = occupiedQuantity(departure.id),
+          remaining = Math.max(0, Number(departure.capacity || 0) - occupied),
+          start = parseDepartureDate(departure.startAt),
+          end = parseDepartureDate(departure.endAt);
+        if (departure.status === "CANCELLED") return { label: "已取消", tone: "danger", occupied, remaining };
+        if (start && end && end <= start) return { label: "日期待修正", tone: "warning", occupied, remaining };
+        if (end && end <= prototypeNow) return { label: "已結束", tone: "info", occupied, remaining };
+        if (start && start <= prototypeNow) return { label: "已出發", tone: "info", occupied, remaining };
+        if (departure.status === "DRAFT") return { label: "草稿", tone: "info", occupied, remaining };
+        if (departure.status === "CLOSED") return { label: "停止報名", tone: "warning", occupied, remaining };
+        if (remaining === 0) return { label: "已額滿", tone: "danger", occupied, remaining };
+        const bookingOpen = parseDepartureDate(departure.bookingOpenAt),
+          bookingClose = parseDepartureDate(departure.bookingCloseAt);
+        if (bookingOpen && bookingOpen > prototypeNow) return { label: "尚未開放", tone: "warning", occupied, remaining };
+        if (bookingClose && bookingClose <= prototypeNow) return { label: "報名截止", tone: "info", occupied, remaining };
+        return { label: "開放報名", tone: "success", occupied, remaining };
+      }
+      function departureCanBePublished(departure) {
+        const availability = departureAvailability(departure);
+        return !departureIsHistorical(departure) && ["開放報名", "尚未開放"].includes(availability.label);
+      }
+      function updateDayCarousel() {
+        const total = itineraryState.length;
+        activeDayIndex = total ? Math.max(0, Math.min(activeDayIndex, total - 1)) : 0;
+        $("day-position").textContent = total ? `第 ${activeDayIndex + 1} 天／共 ${total} 天` : "尚無行程";
+        $("day-prev").disabled = !total || activeDayIndex === 0;
+        $("day-next").disabled = !total || activeDayIndex === total - 1;
+      }
+      function showDaySlide(index, smooth = true) {
+        const cards = [...$("itinerary-builder").querySelectorAll(".day-card")];
+        if (!cards.length) return updateDayCarousel();
+        activeDayIndex = Math.max(0, Math.min(index, cards.length - 1));
+        $("itinerary-builder").scrollTo({
+          left: cards[activeDayIndex].offsetLeft - $("itinerary-builder").offsetLeft,
+          behavior: smooth ? "smooth" : "auto"
+        });
+        updateDayCarousel();
+      }
+      function renderItineraryBuilder() {
+        syncItinerary();
+        $("itinerary-builder").innerHTML = itineraryState.length
+          ? itineraryState
+              .map(
+                day => `<article class="day-card" data-day-id="${day.id}">
+                  <div class="day-card-header">
+                    <div class="day-label">DAY ${day.dayNumber}<small>tour_product_days</small></div>
+                    <button type="button" class="link danger" data-day-action="delete">刪除一天</button>
+                  </div>
+                  <div class="day-fields">
+                    <div class="day-field day-field--full"><label for="day-${day.id}-title"><span class="required">* </span>路線標題</label><input id="day-${day.id}-title" data-day-field="title" value="${esc(day.title)}" placeholder="例如：嵐山竹林 → 金閣寺 → 茶道體驗" /></div>
+                    <div class="day-field day-field--full"><label for="day-${day.id}-extraFeeNote">額外費用</label><input id="day-${day.id}-extraFeeNote" data-day-field="extraFeeNote" value="${esc(day.extraFeeNote || "")}" placeholder="嚴島神社 ¥300、宮島渡輪（旅客搭乘來回）¥400" /><p class="help">填寫旅客當日需另外負擔或現場支付的費用；無額外費用可留白。</p></div>
+                    <div class="day-field"><label for="day-${day.id}-breakfast">早餐</label><input id="day-${day.id}-breakfast" data-day-field="breakfast" value="${esc(day.breakfast)}" placeholder="例如：飯店內早餐" /></div>
+                    <div class="day-field"><label for="day-${day.id}-lunch">午餐</label><input id="day-${day.id}-lunch" data-day-field="lunch" value="${esc(day.lunch)}" placeholder="例如：湯豆腐御膳" /></div>
+                    <div class="day-field"><label for="day-${day.id}-dinner">晚餐</label><input id="day-${day.id}-dinner" data-day-field="dinner" value="${esc(day.dinner)}" placeholder="例如：方便遊玩～敬請自理" /></div>
+                    <div class="day-field"><label for="day-${day.id}-hotel">住宿</label><input id="day-${day.id}-hotel" data-day-field="hotel" value="${esc(day.hotel)}" placeholder="例如：京都四條烏丸飯店或同級" /></div>
+                    <div class="day-field day-field--full"><label for="day-${day.id}-note">當日備註</label><textarea id="day-${day.id}-note" data-day-field="note" placeholder="補充當日行程、季節或注意事項">${esc(day.note)}</textarea></div>
+                  </div>
+                  <div class="spot-section">
+                    <div class="spot-section-header"><h3>景點／活動（${day.spots.length}）</h3><button type="button" data-day-action="add-spot">＋ 新增景點</button></div>
+                    <div class="spot-list">${
+                      day.spots.length
+                        ? day.spots
+                            .map(
+                              spot => `<div class="spot-card" data-spot-id="${spot.id}">
+                      <span class="spot-index">${spot.sortOrder}</span>
+                      ${spotImageMarkup(spot, `${spot.name || "景點"}圖片`)}
+                      <div class="spot-content"><strong>${esc(spot.name || "未命名景點")}</strong>${spot.tag ? `<span class="tag">${esc(spot.tag)}</span>` : ""}<p class="note">${esc(spot.description || "尚未填寫景點說明")}</p></div>
+                      <div class="spot-actions"><button type="button" data-spot-action="up" ${spot.sortOrder === 1 ? "disabled" : ""}>上移</button><button type="button" data-spot-action="down" ${spot.sortOrder === day.spots.length ? "disabled" : ""}>下移</button><button type="button" class="link" data-spot-action="edit">編輯</button><button type="button" class="link danger" data-spot-action="delete">刪除</button></div>
+                    </div>`
+                            )
+                            .join("")
+                        : '<div class="empty-state" style="padding:22px">尚未新增景點或活動</div>'
+                    }</div>
+                  </div>
+                </article>`
+              )
+              .join("")
+          : '<div class="empty-state"><strong>尚未建立每日行程</strong>請先新增一天，再填寫路線與景點。</div>';
+        updateDayCarousel();
+        requestAnimationFrame(() => showDaySlide(activeDayIndex, false));
+      }
+      function updateDepartureCarousel() {
+        const total = departureState.length;
+        activeDepartureIndex = total ? Math.max(0, Math.min(activeDepartureIndex, total - 1)) : 0;
+        $("departure-position").textContent = total ? `第 ${activeDepartureIndex + 1} 個／共 ${total} 個` : "尚無梯次";
+        $("departure-prev").disabled = !total || activeDepartureIndex === 0;
+        $("departure-next").disabled = !total || activeDepartureIndex === total - 1;
+      }
+      function showDepartureSlide(index, smooth = true) {
+        const cards = [...$("departure-editor").querySelectorAll(".departure-card")];
+        if (!cards.length) return updateDepartureCarousel();
+        activeDepartureIndex = Math.max(0, Math.min(index, cards.length - 1));
+        $("departure-editor").scrollTo({
+          left: cards[activeDepartureIndex].offsetLeft - $("departure-editor").offsetLeft,
+          behavior: smooth ? "smooth" : "auto"
+        });
+        updateDepartureCarousel();
+      }
+      function updateDepartureCardSummary(card, departure) {
+        if (!card || !departure) return;
+        const availability = departureAvailability(departure),
+          chip = card.querySelector(".departure-card-header .status-chip"),
+          metrics = card.querySelectorAll(".departure-metric strong");
+        if (chip) {
+          chip.className = `status-chip ${availability.tone}`;
+          chip.textContent = availability.label;
+        }
+        if (metrics[0]) metrics[0].textContent = `${Number(departure.capacity || 0)} 人`;
+        if (metrics[1]) metrics[1].textContent = `${availability.occupied} 人`;
+        if (metrics[2]) metrics[2].textContent = `${availability.remaining} 人`;
+      }
+      function updateDepartureValidation(card, departure) {
+        if (!card || !departure) return;
+        const issue = departureDateIssue(departure);
+        let feedback = card.querySelector(".departure-validation");
+        if (!issue) {
+          feedback?.remove();
+          return;
+        }
+        if (!feedback) {
+          feedback = document.createElement("p");
+          feedback.className = "departure-validation";
+          feedback.setAttribute("role", "alert");
+          card.querySelector(".departure-fields")?.after(feedback);
+        }
+        feedback.textContent = `⚠ ${issue}`;
+      }
+      function renderDepartureEditor() {
+        $("departure-editor").innerHTML = departureState.length
+          ? departureState
+              .map((departure, index) => {
+                const availability = departureAvailability(departure),
+                  historical = departureIsHistorical(departure),
+                  readOnly = historical ? "disabled" : "",
+                  dateIssue = departureDateIssue(departure);
+                return `<article class="departure-card ${historical ? "is-history" : ""}" data-departure-index="${index}">
+                  <div class="departure-card-header"><div><strong>出發梯次 ${index + 1}</strong> ${statusChip(availability.label, availability.tone)}${historical ? '<span class="note">歷史資料僅供查看</span>' : ""}</div><button type="button" class="link danger" data-departure-action="delete" ${readOnly}>刪除</button></div>
+                  <div class="departure-metrics">
+                    <div class="departure-metric"><span>總名額</span><strong>${Number(departure.capacity || 0)} 人</strong></div>
+                    <div class="departure-metric"><span>已占用（訂單推導）</span><strong>${availability.occupied} 人</strong></div>
+                    <div class="departure-metric"><span>剩餘名額</span><strong>${availability.remaining} 人</strong></div>
+                  </div>
+                  <div class="departure-fields">
+                    <div class="departure-field"><label for="departure-${index}-startAt"><span class="required">* </span>出發日期時間</label><input id="departure-${index}-startAt" type="datetime-local" data-departure-field="startAt" value="${esc(departure.startAt)}" ${readOnly}/></div>
+                    <div class="departure-field"><label for="departure-${index}-endAt"><span class="required">* </span>回程日期時間</label><input id="departure-${index}-endAt" type="datetime-local" data-departure-field="endAt" value="${esc(departure.endAt)}" ${readOnly}/></div>
+                    <div class="departure-field"><label for="departure-${index}-timeZone"><span class="required">* </span>時區</label><select id="departure-${index}-timeZone" data-departure-field="timeZone" ${readOnly}><option value="Asia/Taipei" ${departure.timeZone === "Asia/Taipei" ? "selected" : ""}>Asia/Taipei</option><option value="Asia/Tokyo" ${departure.timeZone === "Asia/Tokyo" ? "selected" : ""}>Asia/Tokyo</option><option value="Asia/Seoul" ${departure.timeZone === "Asia/Seoul" ? "selected" : ""}>Asia/Seoul</option><option value="Asia/Bangkok" ${departure.timeZone === "Asia/Bangkok" ? "selected" : ""}>Asia/Bangkok</option></select></div>
+                    <div class="departure-field"><label for="departure-${index}-price"><span class="required">* </span>梯次售價（NT$）</label><input id="departure-${index}-price" type="number" min="1" step="1" data-departure-field="price" value="${esc(departure.price)}" ${readOnly}/></div>
+                    <div class="departure-field"><label for="departure-${index}-capacity"><span class="required">* </span>總名額</label><input id="departure-${index}-capacity" type="number" min="${availability.occupied || 1}" step="1" data-departure-field="capacity" value="${esc(departure.capacity)}" ${readOnly}/></div>
+                    <div class="departure-field"><label for="departure-${index}-status"><span class="required">* </span>梯次狀態</label><select id="departure-${index}-status" data-departure-field="status" ${readOnly}>${Object.entries(
+                      departureStatusLabels
+                    )
+                      .map(
+                        ([value, label]) =>
+                          `<option value="${value}" ${departure.status === value ? "selected" : ""}>${label}</option>`
+                      )
+                      .join("")}</select></div>
+                    <div class="departure-field"><label for="departure-${index}-bookingOpenAt">報名開始</label><input id="departure-${index}-bookingOpenAt" type="datetime-local" data-departure-field="bookingOpenAt" value="${esc(departure.bookingOpenAt)}" ${readOnly}/></div>
+                    <div class="departure-field"><label for="departure-${index}-bookingCloseAt">報名截止</label><input id="departure-${index}-bookingCloseAt" type="datetime-local" data-departure-field="bookingCloseAt" value="${esc(departure.bookingCloseAt)}" ${readOnly}/></div>
+                    <div class="departure-field"><label for="departure-${index}-meetingPlace">集合地點</label><input id="departure-${index}-meetingPlace" data-departure-field="meetingPlace" value="${esc(departure.meetingPlace)}" placeholder="例如：桃園機場第一航廈 6 號櫃檯" ${readOnly}/></div>
+                    <div class="departure-field departure-field--full"><label for="departure-${index}-note">梯次備註</label><textarea id="departure-${index}-note" data-departure-field="note" placeholder="補充航班、集合或此梯次限定事項" ${readOnly}>${esc(departure.note)}</textarea></div>
+                  </div>
+                  ${dateIssue ? `<p class="departure-validation" role="alert">⚠ ${esc(dateIssue)}</p>` : ""}
+                  <p class="help">系統欄位：建立 ${esc(departure.createdAt || "儲存後產生")}　｜　更新 ${esc(departure.updatedAt || "儲存後產生")}</p>
+                </article>`;
+              })
+              .join("")
+          : '<div class="empty-state" style="padding:22px">尚未新增出發梯次</div>';
+        updateDepartureCarousel();
+        requestAnimationFrame(() => showDepartureSlide(activeDepartureIndex, false));
+      }
+      function buildTripReadOnlyModel(source = {}) {
+        const sourcePhotos = Array.isArray(source.photos) ? source.photos : [],
+          coverExists = sourcePhotos.some(photo => photo.isCover),
+          days = Array.isArray(source.tourProductDays) ? source.tourProductDays : Array.isArray(source.days) ? source.days : [];
+        return {
+          trip: {
+            name: String(source.name || "").trim(),
+            summary: String(source.summary || "").trim(),
+            price: Number(source.price) || 0,
+            status: source.status || "DRAFT",
+            content: String(source.content || "").trim(),
+            comment: String(source.comment || "").trim()
+          },
+          photos: sourcePhotos.map((photo, index) => ({
+            ...photo,
+            isCover: Boolean(photo.isCover) || (!coverExists && index === 0)
+          })),
+          days: days.map((day, dayIndex) => ({
+            ...day,
+            dayNumber: Number(day.dayNumber) || dayIndex + 1,
+            title: String(day.title || "").trim(),
+            extraFeeNote: String(day.extraFeeNote || "").trim(),
+            breakfast: String(day.breakfast || "").trim(),
+            lunch: String(day.lunch || "").trim(),
+            dinner: String(day.dinner || "").trim(),
+            hotel: String(day.hotel || "").trim(),
+            note: String(day.note || "").trim(),
+            spots: (day.spots || []).map((spot, spotIndex) => ({
+              ...spot,
+              sortOrder: Number(spot.sortOrder) || spotIndex + 1,
+              name: String(spot.name || "").trim(),
+              tag: String(spot.tag || "").trim(),
+              description: String(spot.description || "").trim(),
+              imageUrl: String(spot.imageUrl || "").trim()
+            }))
+          })),
+          departures: (Array.isArray(source.departures) ? source.departures : []).map(departure => ({ ...departure }))
+        };
+      }
+      function renderReadOnlyFact(label, value) {
+        const text = String(value ?? "").trim();
+        return text ? `<div class="read-only-fact"><dt>${esc(label)}</dt><dd>${esc(text)}</dd></div>` : "";
+      }
+      function renderTripReadOnly(model, options = {}) {
+        const { trip, photos, days, departures } = model,
+          context = options.context || "detail",
+          statusLabel = labels[trip.status] || trip.status,
+          cover = photos.find(photo => photo.isCover) || photos[0],
+          remainingPhotos = cover ? photos.filter(photo => photo !== cover) : [],
+          photoMarkupFor = (photo, caption, isCover = false) =>
+            `<figure class="read-only-photo-card ${isCover ? "read-only-photo-cover" : ""}">${readOnlyPhotoMarkup(photo, `${trip.name || "行程"}${caption}`)}<figcaption>${esc(caption)}</figcaption></figure>`,
+          photoSection = photos.length
+            ? `<div class="read-only-photo-layout">${cover ? photoMarkupFor(cover, "封面", true) : ""}${remainingPhotos.length ? `<div class="read-only-photo-grid">${remainingPhotos.map((photo, index) => photoMarkupFor(photo, `行程圖片 ${index + 2}`)).join("")}</div>` : ""}</div>`
+            : '<p class="muted">尚未設定行程圖片。</p>',
+          dayMarkup = days.length
+            ? days
+                .map(day => {
+                  const facts = [
+                      renderReadOnlyFact("早餐", day.breakfast),
+                      renderReadOnlyFact("午餐", day.lunch),
+                      renderReadOnlyFact("晚餐", day.dinner),
+                      renderReadOnlyFact("住宿", day.hotel)
+                    ]
+                      .filter(Boolean)
+                      .join(""),
+                    spots = [...day.spots].sort((a, b) => a.sortOrder - b.sortOrder),
+                    spotMarkup = spots.length
+                      ? spots
+                          .map(
+                            spot =>
+                              `<article class="read-only-spot">${readOnlySpotImageMarkup(spot, `${spot.name || "景點"}圖片`)}<div class="read-only-spot-body"><div class="read-only-spot-title"><span class="read-only-spot-order">${spot.sortOrder}</span><strong>${esc(spot.name || "未命名景點")}</strong>${spot.tag ? `<span class="tag">${esc(spot.tag)}</span>` : ""}</div>${spot.description ? `<p>${esc(spot.description)}</p>` : ""}</div></article>`
+                          )
+                          .join("")
+                      : '<p class="muted">本日尚未安排景點。</p>';
+                  return `<article class="read-only-day"><div class="read-only-day-header"><h4>DAY ${day.dayNumber}｜${esc(day.title || "尚未填寫路線標題")}</h4><span class="tag">${spots.length} 個景點</span></div>${day.extraFeeNote ? `<div class="read-only-extra-fee"><strong>額外費用</strong><p>${esc(day.extraFeeNote)}</p></div>` : ""}${facts ? `<dl class="read-only-facts">${facts}</dl>` : ""}${day.note ? `<p class="read-only-note"><strong>當日備註：</strong>${esc(day.note)}</p>` : ""}<div class="read-only-spots"><h5>景點</h5><div class="read-only-spot-grid">${spotMarkup}</div></div></article>`;
+                })
+                .join("")
+            : '<p class="muted">尚未建立每日行程。</p>',
+          departureMarkup = departures.length
+            ? departures
+                .map((departure, index) => {
+                  const availability = departureAvailability(departure);
+                  return `<article class="read-only-departure"><strong>出發梯次 ${index + 1} ${statusChip(availability.label, availability.tone)}</strong><dl class="read-only-departure-facts">${renderReadOnlyFact("出發日期時間", departure.startAt ? formatDateTime(departure.startAt) : "")}${renderReadOnlyFact("回程日期時間", departure.endAt ? formatDateTime(departure.endAt) : "")}${renderReadOnlyFact("時區", departure.timeZone)}${renderReadOnlyFact("梯次售價", departure.price ? `NT$ ${Number(departure.price).toLocaleString()}` : "")}${renderReadOnlyFact("總名額", `${Number(departure.capacity || 0)} 人`)}${renderReadOnlyFact("已占用", `${availability.occupied} 人（訂單推導）`)}${renderReadOnlyFact("剩餘名額", `${availability.remaining} 人`)}${renderReadOnlyFact("報名期間", departure.bookingOpenAt || departure.bookingCloseAt ? `${formatDateTime(departure.bookingOpenAt)} ～ ${formatDateTime(departure.bookingCloseAt)}` : "")}${renderReadOnlyFact("集合地點", departure.meetingPlace)}${renderReadOnlyFact("梯次備註", departure.note)}${renderReadOnlyFact("建立時間", departure.createdAt)}${renderReadOnlyFact("更新時間", departure.updatedAt)}</dl></article>`;
+                })
+                .join("")
+            : '<p class="muted">尚未設定出發梯次。</p>';
+        return `<div class="trip-readonly trip-readonly--${esc(context)}"><header class="trip-readonly-header"><h2>${esc(trip.name || "尚未填寫商品名稱")}</h2><p class="trip-readonly-summary">${esc(trip.summary || "尚未填寫商品摘要")}</p><p class="trip-readonly-price">NT$ ${trip.price.toLocaleString()} / 人</p><div class="trip-readonly-meta"><span class="tag ${esc(trip.status)}">${esc(statusLabel || "草稿")}</span><span>圖片 ${photos.length} 張</span><span>每日行程 ${days.length} 天</span><span>出發梯次 ${departures.length} 筆</span></div></header>${trip.content ? `<section class="trip-readonly-section"><h3>商品總體介紹</h3><p class="trip-readonly-richtext">${esc(trip.content)}</p></section>` : ""}${trip.comment ? `<section class="trip-readonly-section"><h3>備註</h3><p class="trip-readonly-comment">${esc(trip.comment)}</p></section>` : ""}<section class="trip-readonly-section"><h3>行程圖片</h3>${photoSection}</section><section class="trip-readonly-section"><h3>每日行程</h3>${dayMarkup}</section><section class="trip-readonly-section"><h3>出發梯次</h3><div class="read-only-departures">${departureMarkup}</div></section></div>`;
+      }
+      function renderPreview() {
+        syncItinerary();
+        const status = $("form-status").value || "DRAFT";
+        $("summary-preview").innerHTML = renderTripReadOnly(
+          buildTripReadOnlyModel({
+            name: $("name").value,
+            summary: $("summary").value,
+            price: $("price").value,
+            content: $("content").value,
+            comment: $("comment").value,
+            status,
+            photos: photoState,
+            tourProductDays: itineraryState,
+            departures: departureState
+          }),
+          { context: "preview" }
+        );
+      }
+      function validateStep(stepNumber) {
+        if (stepNumber === 0) {
+          if (!$("name").value.trim()) return { message: "請填寫行程名稱" };
+          if (!$("summary").value.trim()) return { message: "請填寫行程摘要" };
+          const price = Number($("price").value);
+          if (!Number.isFinite(price) || price <= 0) return { message: "請填寫大於 0 的售價" };
+        }
+        if (stepNumber === 2) {
+          if (!itineraryState.length) return { message: "至少需要新增 1 天每日行程" };
+          if (itineraryState.some(day => !String(day.title || "").trim())) return { message: "每個每日行程都需要填寫路線標題" };
+        }
+        if (stepNumber === 3) {
+          if (!departureState.length) return { message: "至少需要新增 1 個出發梯次" };
+          const editableDepartures = departureState.filter(departure => !departureIsHistorical(departure));
+          const incomplete = editableDepartures.find(departure => {
+            const capacity = Number(departure.capacity),
+              price = Number(departure.price);
+            return (
+              !departure.startAt ||
+              !departure.endAt ||
+              !departure.timeZone ||
+              !departureStatusLabels[departure.status] ||
+              !Number.isFinite(capacity) ||
+              capacity <= 0 ||
+              !Number.isFinite(price) ||
+              price <= 0
+            );
+          });
+          if (incomplete) return { message: "每個進行中的梯次都需要完整時間、時區、狀態、售價與名額" };
+          const dateIssue = editableDepartures.map(departureDateIssue).find(Boolean);
+          if (dateIssue) return { message: dateIssue };
+          if (editableDepartures.some(departure => Number(departure.capacity) < occupiedQuantity(departure.id)))
+            return { message: "梯次總名額不可低於有效訂單的已占用名額" };
+        }
+        if (stepNumber === 4 && $("form-status").value === "PUBLISHED") {
+          const publishError = validatePublishData({
+            name: $("name").value,
+            summary: $("summary").value,
+            price: $("price").value,
+            tourProductDays: itineraryState,
+            departures: departureState
+          });
+          if (publishError) return { message: `上架前仍有資料未完成：${publishError.message}` };
+        }
+        return null;
+      }
+      function firstInvalidStep() {
+        for (let index = 0; index <= 4; index += 1) {
+          const error = validateStep(index);
+          if (error) return { step: index, error };
+        }
+        return null;
+      }
+      function updateStepValidity() {
+        const currentError = validateStep(step),
+          errorBox = $("step-error"),
+          nextButton = $("next"),
+          firstError = firstInvalidStep();
+        errorBox.hidden = !currentError;
+        errorBox.textContent = currentError ? `⚠ ${currentError.message}；完成後才能進入下一步。` : "";
+        nextButton.disabled = step === 5 || Boolean(currentError);
+        $("steps")
+          .querySelectorAll("button")
+          .forEach(button => {
+            const targetStep = Number(button.dataset.index),
+              blocked = targetStep > step && firstError && targetStep > firstError.step;
+            button.disabled = Boolean(blocked);
+            if (blocked) button.title = `請先完成第 ${firstError.step + 1} 步`;
+            else button.removeAttribute("title");
+          });
+        if (step === 5) {
+          const publishError = validatePublishData({
+            name: $("name").value,
+            summary: $("summary").value,
+            price: $("price").value,
+            tourProductDays: itineraryState,
+            departures: departureState
+          });
+          $("publish").disabled = Boolean(publishError);
+        } else {
+          $("publish").disabled = false;
+        }
+      }
+      function updateFormStatusTag() {
+        const status = $("form-status").value || "DRAFT",
+          tag = $("form-view").querySelector(".tag");
+        tag.textContent = labels[status];
+        tag.className = `tag ${status}`;
+      }
       function showStep(n) {
-        step = Math.max(0, Math.min(4, n));
+        const nextStep = Math.max(0, Math.min(5, n));
+        if (nextStep > step) {
+          const blocker = firstInvalidStep();
+          if (blocker && nextStep > blocker.step) {
+            const message = `${blocker.error.message}；完成第 ${blocker.step + 1} 步後才能繼續。`;
+            $("step-error").hidden = false;
+            $("step-error").textContent = `⚠ ${message}`;
+            notify(message);
+            return;
+          }
+        }
+        step = nextStep;
         document.querySelectorAll("[data-step]").forEach(s => (s.hidden = Number(s.dataset.step) !== step));
         $("steps").innerHTML = names
           .map(
@@ -1527,14 +3434,12 @@
           )
           .join("");
         $("previous").disabled = step === 0;
-        $("next").hidden = step === 4;
-        $("publish").hidden = step !== 4;
-        if (step === 4) {
-          const depStart = $("start-time").value || "尚未設定",
-            depEnd = $("end-time").value || "尚未設定";
-          $("summary-preview").textContent =
-            `Trip\nname：${$("name").value || "尚未填寫"}\nsummary：${$("summary").value || "尚未填寫"}\nprice：NT$ ${Number($("price").value || 0).toLocaleString()} / 人\ncontent：${$("content").value || "尚未填寫"}\ncomment：${$("comment").value || "尚未填寫"}\n\nTripPhoto\n圖片數：${photoState.length}\n封面預覽：${photoState.some(p => p.isCover) ? "已選擇（prototype-only）" : "示意圖片"}\n\nTripDeparture\nstartTime：${depStart}\nendTime：${depEnd}\ncapacity：${$("capacity").value || "尚未設定"}\n\nPublication\nstatus：${$("form-view").querySelector(".tag").textContent}（Pending Backend Contract）`;
-        }
+        $("next").hidden = step === 5;
+        $("publish").hidden = step !== 5;
+        if (step === 2) renderItineraryBuilder();
+        if (step === 3) renderDepartureEditor();
+        if (step === 5) renderPreview();
+        updateStepValidity();
       }
       function renderPhotoPreview() {
         const box = $("image-preview");
@@ -1542,83 +3447,146 @@
           ? photoState
               .map(
                 (p, i) =>
-                  `<div class="photo-item ${p.isCover ? "selected" : ""}">${p.isCover ? '<span class="cover-badge">視覺封面</span>' : ""}${photoMarkup(p, "行程圖片")}<button type="button" data-photo="${i}">${p.isCover ? "已設為封面" : "設為封面"}</button></div>`
+                  `<div class="photo-item ${p.isCover ? "selected" : ""}">${p.isCover ? '<span class="cover-badge">視覺封面</span>' : ""}${photoMarkup(p, "行程圖片")}<div class="photo-actions"><button type="button" data-photo-action="cover" data-photo-index="${i}" ${p.isCover ? "disabled" : ""}>${p.isCover ? "目前封面" : "設為封面"}</button><button type="button" class="danger" data-photo-action="delete" data-photo-index="${i}">刪除</button></div></div>`
               )
               .join("")
           : '<span class="note">尚未選擇圖片</span>';
       }
-      function openForm(t) {
+      function openForm(t, returnView = "trip") {
         editing = t?.id ?? null;
+        formReturnView = returnView;
+        activeDayIndex = 0;
+        activeDepartureIndex = 0;
         $("trip-form").reset();
         photoState = t ? t.photos.map(p => ({ ...p })) : [];
+        itineraryState = cloneDays(t?.tourProductDays || []);
+        if (!itineraryState.length && !t) itineraryState = [newDay()];
+        departureState = (t?.departures || []).map(departure => ({ ...departure }));
         ["name", "summary", "price", "content", "comment"].forEach(id => ($(id).value = t?.[id] ?? ""));
-        const dep = t?.departures?.[0];
-        $("start-time").value = dep?.startTime || "";
-        $("end-time").value = dep?.endTime || "";
-        $("capacity").value = dep?.capacity || 20;
+        $("form-status").value = t?.status || "DRAFT";
+        updateFormStatusTag();
         renderPhotoPreview();
+        renderItineraryBuilder();
+        renderDepartureEditor();
         $("form-title").textContent = t ? "編輯行程" : "新增行程";
-        $("breadcrumb").textContent = `行程列表 / ${t ? "編輯行程" : "新增行程"}`;
+        $("breadcrumb").textContent = `${returnView === "departures" ? "出發梯次" : "行程列表"} / ${t ? "編輯行程" : "新增行程"}`;
         $("form-view").querySelector(".tag").textContent = t ? labels[t.status] : "草稿";
         $("form-view").querySelector(".tag").className = `tag ${t?.status || "DRAFT"}`;
         $("tab-title").textContent = t ? "▣ 編輯行程" : "▣ 新增行程";
-        $("list-view").hidden = true;
+        hideViews();
         $("form-view").hidden = false;
         showStep(0);
+        requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "auto" }));
       }
       function save(status) {
-        if (
-          !$("name").value.trim() ||
-          !$("summary").value.trim() ||
-          !$("price").checkValidity() ||
-          !$("capacity").checkValidity()
-        ) {
+        const name = $("name").value.trim(),
+          summary = $("summary").value.trim(),
+          price = Number($("price").value),
+          publishing = status === "PUBLISHED";
+        if (!name) {
           showStep(0);
-          notify("請填寫行程名稱、摘要與有效售價；名額須大於 0");
+          notify("請先填寫行程名稱");
           return;
+        }
+        const editableDepartureIssue = departureState
+          .filter(departure => !departureIsHistorical(departure))
+          .map(departureDateIssue)
+          .find(Boolean);
+        if (editableDepartureIssue) {
+          showStep(3);
+          notify(editableDepartureIssue);
+          return;
+        }
+        syncItinerary();
+        if (publishing) {
+          const validationError = validatePublishData({
+            name,
+            summary,
+            price,
+            tourProductDays: itineraryState,
+            departures: departureState
+          });
+          if (validationError) return (showStep(validationError.step), notify(validationError.message));
         }
         let t = trips.find(t => t.id === editing);
         if (!t) {
-          t = { id: Math.max(...trips.map(t => t.id)) + 1, createdAt: "2026-09-05 09:30:00", departures: [], photos: [] };
+          t = {
+            id: Math.max(...trips.map(t => t.id)) + 1,
+            createdAt: "2026-09-06 09:30:00",
+            departures: [],
+            photos: [],
+            tourProductDays: []
+          };
           trips.unshift(t);
         }
+        itineraryState.forEach(day => (day.tripId = t.id));
+        syncItinerary();
         ["name", "summary", "content", "comment"].forEach(id => (t[id] = $(id).value));
-        const hasDeparture = $("start-time").value || $("end-time").value;
-        if ((hasDeparture && !$("start-time").value) || (hasDeparture && !$("end-time").value)) {
-          showStep(3);
-          notify("開始時間與結束時間需一併填寫");
-          return;
-        }
-        t.price = Number($("price").value);
-        t.departures = hasDeparture
-          ? [
-              {
-                id: t.departures[0]?.id || Date.now(),
-                startTime: $("start-time").value,
-                endTime: $("end-time").value,
-                capacity: Number($("capacity").value)
-              }
-            ]
-          : [];
+        t.price = Number.isFinite(price) ? price : 0;
+        t.departures = departureState.map(departure => ({
+          ...departure,
+          capacity: Number(departure.capacity) || 0,
+          price: Number(departure.price) || 0,
+          updatedAt: "2026-09-06 14:20:00"
+        }));
+        t.tourProductDays = cloneDays(itineraryState);
         t.photos = photoState.map(p => ({ ...p }));
         t.status = status;
-        t.updatedAt = "2026-09-05 14:20:00";
+        t.updatedAt = "2026-09-06 14:20:00";
         $("search-form").reset();
-        showList();
+        formReturnView === "departures" ? showDepartures() : showList();
         notify(
           status === "PUBLISHED"
             ? "已模擬上架行程（Prototype only，尚未對應 DB persistence）"
             : "已儲存草稿（Prototype only，尚未對應 DB persistence）"
         );
       }
-      function modal(title, body) {
+      function openSpotDialog(dayId, spotId = null) {
+        const day = itineraryState.find(item => item.id === dayId);
+        if (!day) return;
+        const spot = day.spots.find(item => item.id === spotId);
+        modal(
+          spot ? "編輯景點／活動" : "新增景點／活動",
+          `<form id="spot-form"><div class="field"><label for="spot-name"><span class="required">* </span>名稱</label><input id="spot-name" required value="${esc(spot?.name || "")}" placeholder="例如：皿倉山纜車" /></div><div class="field"><label for="spot-tag">標籤</label><input id="spot-tag" value="${esc(spot?.tag || "")}" placeholder="例如：特別安排" /></div><div class="field"><label for="spot-description">說明</label><textarea id="spot-description" placeholder="補充景點或活動說明">${esc(spot?.description || "")}</textarea></div><div class="field"><label for="spot-image-url">圖片 URL</label><input id="spot-image-url" type="url" value="${esc(spot?.imageUrl || "")}" placeholder="https://example.com/spot.jpg" /></div><div class="dialog-footer"><button type="submit" class="primary">儲存景點</button></div></form>`
+        );
+        $("spot-form").onsubmit = event => {
+          event.preventDefault();
+          const name = $("spot-name").value.trim();
+          if (!name) {
+            notify("景點名稱為必填");
+            $("spot-name").focus();
+            return;
+          }
+          const nextSpot = {
+            id: spot?.id || Date.now() + Math.floor(Math.random() * 1000),
+            tourDayId: day.id,
+            name,
+            tag: $("spot-tag").value.trim(),
+            description: $("spot-description").value.trim(),
+            imageUrl: imageUrl($("spot-image-url").value),
+            sortOrder: spot?.sortOrder || day.spots.length + 1
+          };
+          if (spot) Object.assign(spot, nextSpot);
+          else day.spots.push(nextSpot);
+          syncItinerary();
+          $("dialog").close();
+          renderItineraryBuilder();
+          notify(spot ? "景點已更新（Prototype only）" : "景點已新增（Prototype only）");
+        };
+      }
+      function modal(title, body, options = {}) {
+        const dialog = $("dialog");
+        dialog.classList.remove("trip-detail-dialog");
+        if (options.variant === "trip-detail") dialog.classList.add("trip-detail-dialog");
         $("dialog-title").textContent = title;
         $("dialog-body").innerHTML = body;
-        $("dialog").showModal();
+        dialog.showModal();
       }
       function setActive(view) {
         $("list-nav").classList.toggle("active", view === "trip");
         $("list-nav").toggleAttribute("aria-current", view === "trip");
+        $("depart-nav").classList.toggle("active", view === "departures");
+        $("depart-nav").toggleAttribute("aria-current", view === "departures");
         $("posts-nav").classList.toggle("active", view === "posts");
         $("posts-nav").toggleAttribute("aria-current", view === "posts");
         $("reports-nav").classList.toggle("active", view === "reports");
@@ -1627,7 +3595,7 @@
         $("account-nav").toggleAttribute("aria-current", view === "account");
       }
       function hideViews() {
-        ["list-view", "form-view", "account-view", "purchase-view", "post-view", "report-view"].forEach(
+        ["list-view", "departure-view", "form-view", "account-view", "purchase-view", "post-view", "report-view"].forEach(
           id => ($(id).hidden = true)
         );
         $("drawer-backdrop").hidden = true;
@@ -1748,7 +3716,7 @@
             .map(i => {
               const t = getTrip(i.tripId),
                 d = getDeparture(i.tripId, i.departureId);
-              return `<tr><td>${esc(t?.name || "未知行程")}<small class="note">presentation data</small></td><td>${i.tripId}</td><td>${i.departureId}</td><td>${esc(d?.startTime || "—")}–${esc(d?.endTime || "—")}</td><td>${i.quantity}</td><td>NT$ ${i.unitPrice.toLocaleString()}</td><td>NT$ ${(i.quantity * i.unitPrice).toLocaleString()}</td></tr>`;
+              return `<tr><td>${esc(t?.name || "未知行程")}<small class="note">presentation data</small></td><td>${i.tripId}</td><td>${i.departureId}</td><td>${esc(formatDateTime(d?.startAt))}–${esc(formatDateTime(d?.endAt))}<small class="note">${esc(d?.timeZone || "")}</small></td><td>${i.quantity}</td><td>NT$ ${i.unitPrice.toLocaleString()}</td><td>NT$ ${(i.quantity * i.unitPrice).toLocaleString()}</td></tr>`;
             })
             .join(
               ""
@@ -1890,6 +3858,47 @@
           notify(`檢舉 ${r.id} 已更新為${reportStatusLabel(r.status)}（Mock）`);
         };
       }
+      $("departure-search").onsubmit = e => {
+        e.preventDefault();
+        renderDepartures();
+      };
+      $("departure-search").onreset = () => setTimeout(renderDepartures, 0);
+      ["active", "history", "all"].forEach(scope => {
+        $(`departure-scope-${scope}`).onclick = () => {
+          departureScope = scope;
+          renderDepartures();
+        };
+      });
+      $("departure-refresh").onclick = () => {
+        renderDepartures();
+        notify("梯次列表已重新整理");
+      };
+      $("create-departure").onclick = openDepartureTripPicker;
+      $("departure-rows").onclick = e => {
+        const button = e.target.closest("[data-departure-page-action]");
+        if (!button || button.disabled) return;
+        const trip = trips.find(item => item.id === Number(button.dataset.tripId)),
+          departure = trip?.departures.find(item => item.id === Number(button.dataset.departureId));
+        if (!trip) return;
+        if (button.dataset.departurePageAction === "slide") {
+          const track = button.closest("[data-departure-group]").querySelector(".departure-group-track");
+          track.scrollBy({ left: Number(button.dataset.direction) * Math.max(300, track.clientWidth * 0.8), behavior: "smooth" });
+          return;
+        }
+        if (button.dataset.departurePageAction === "edit") {
+          openForm(trip, "departures");
+          showStep(3);
+          return;
+        }
+        if (!departure) return;
+        if (button.dataset.departurePageAction === "detail") modal("梯次詳情", departureDetailMarkup(trip, departure));
+        if (button.dataset.departurePageAction === "toggle") {
+          departure.status = departure.status === "OPEN" ? "CLOSED" : "OPEN";
+          departure.updatedAt = "2026-09-06 14:20:00";
+          renderDepartures();
+          notify(`梯次 #${departure.id} 已${departure.status === "OPEN" ? "開放報名" : "停止報名"}（Prototype only）`);
+        }
+      };
       $("search-form").onsubmit = e => {
         e.preventDefault();
         render();
@@ -1904,7 +3913,7 @@
         $("toggle-search").setAttribute("aria-expanded", String(!$("search-form").hidden));
       };
       $("create").onclick = () => openForm();
-      $("back").onclick = showList;
+      $("back").onclick = () => (formReturnView === "departures" ? showDepartures() : showList());
       $("list-nav").onclick = showList;
       $("previous").onclick = () => showStep(step - 1);
       $("next").onclick = () => showStep(step + 1);
@@ -1913,6 +3922,9 @@
         if (b) showStep(Number(b.dataset.index));
       };
       $("trip-form").onsubmit = e => e.preventDefault();
+      $("trip-form").addEventListener("input", updateStepValidity);
+      $("trip-form").addEventListener("change", updateStepValidity);
+      $("trip-form").addEventListener("click", () => requestAnimationFrame(updateStepValidity));
       $("save").onclick = () => save("DRAFT");
       $("publish").onclick = () => save("PUBLISHED");
       $("close-dialog").onclick = () => $("dialog").close();
@@ -1974,35 +3986,205 @@
         });
       };
       $("image-preview").onclick = e => {
-        const b = e.target.closest("[data-photo]");
+        const b = e.target.closest("[data-photo-action]");
         if (!b) return;
-        photoState.forEach((p, i) => (p.isCover = i === Number(b.dataset.photo)));
+        const index = Number(b.dataset.photoIndex);
+        if (b.dataset.photoAction === "delete") {
+          const wasCover = Boolean(photoState[index]?.isCover);
+          photoState.splice(index, 1);
+          if (wasCover && photoState.length) photoState[0].isCover = true;
+          renderPhotoPreview();
+          notify(wasCover && photoState.length ? "圖片已刪除，第一張圖片已自動設為視覺封面" : "圖片已刪除");
+          return;
+        }
+        photoState.forEach((p, i) => (p.isCover = i === index));
         renderPhotoPreview();
       };
+      $("itinerary-builder").oninput = e => {
+        const dayCard = e.target.closest("[data-day-id]"),
+          day = itineraryState.find(item => item.id === Number(dayCard?.dataset.dayId));
+        if (!day || !e.target.dataset.dayField) return;
+        day[e.target.dataset.dayField] = e.target.value;
+      };
+      $("itinerary-builder").onscroll = () => {
+        const cards = [...$("itinerary-builder").querySelectorAll(".day-card")];
+        if (!cards.length) return;
+        activeDayIndex = cards.reduce(
+          (nearest, card, index) =>
+            Math.abs(card.offsetLeft - $("itinerary-builder").offsetLeft - $("itinerary-builder").scrollLeft) <
+            Math.abs(cards[nearest].offsetLeft - $("itinerary-builder").offsetLeft - $("itinerary-builder").scrollLeft)
+              ? index
+              : nearest,
+          0
+        );
+        updateDayCarousel();
+      };
+      $("day-prev").onclick = () => showDaySlide(activeDayIndex - 1);
+      $("day-next").onclick = () => showDaySlide(activeDayIndex + 1);
+      $("itinerary-builder").onclick = e => {
+        const dayCard = e.target.closest("[data-day-id]"),
+          day = itineraryState.find(item => item.id === Number(dayCard?.dataset.dayId));
+        if (!day) return;
+        const dayAction = e.target.closest("[data-day-action]")?.dataset.dayAction,
+          spotButton = e.target.closest("[data-spot-action]");
+        if (dayAction === "delete") {
+          const deletedIndex = itineraryState.indexOf(day);
+          itineraryState = itineraryState.filter(item => item.id !== day.id);
+          activeDayIndex = Math.min(deletedIndex, Math.max(0, itineraryState.length - 1));
+          syncItinerary();
+          renderItineraryBuilder();
+          notify("每日行程已刪除，DAY 編號已重新整理");
+          return;
+        }
+        if (dayAction === "add-spot") {
+          openSpotDialog(day.id);
+          return;
+        }
+        if (!spotButton) return;
+        const spot = day.spots.find(item => item.id === Number(spotButton.closest("[data-spot-id]")?.dataset.spotId)),
+          spotAction = spotButton.dataset.spotAction,
+          spotIndex = day.spots.indexOf(spot);
+        if (!spot) return;
+        if (spotAction === "edit") openSpotDialog(day.id, spot.id);
+        if (spotAction === "delete") {
+          day.spots = day.spots.filter(item => item.id !== spot.id);
+          syncItinerary();
+          renderItineraryBuilder();
+          notify("景點已刪除，景點順序已重新整理");
+        }
+        if (spotAction === "up" && spotIndex > 0) {
+          [day.spots[spotIndex - 1], day.spots[spotIndex]] = [day.spots[spotIndex], day.spots[spotIndex - 1]];
+          syncItinerary();
+          renderItineraryBuilder();
+        }
+        if (spotAction === "down" && spotIndex < day.spots.length - 1) {
+          [day.spots[spotIndex + 1], day.spots[spotIndex]] = [day.spots[spotIndex], day.spots[spotIndex + 1]];
+          syncItinerary();
+          renderItineraryBuilder();
+        }
+      };
+      $("add-day").onclick = () => {
+        itineraryState.push(newDay());
+        activeDayIndex = itineraryState.length - 1;
+        syncItinerary();
+        renderItineraryBuilder();
+        notify("已新增一天行程");
+      };
+      $("departure-editor").oninput = e => {
+        const card = e.target.closest("[data-departure-index]"),
+          departure = departureState[Number(card?.dataset.departureIndex)];
+        if (!departure || !e.target.dataset.departureField) return;
+        departure[e.target.dataset.departureField] = e.target.value;
+        updateDepartureCardSummary(card, departure);
+        updateDepartureValidation(card, departure);
+      };
+      $("departure-editor").onchange = e => {
+        const field = e.target.dataset.departureField,
+          card = e.target.closest("[data-departure-index]"),
+          departure = departureState[Number(card?.dataset.departureIndex)];
+        if (!departure || !field) return;
+        if (["capacity", "status"].includes(field)) {
+          renderDepartureEditor();
+          return;
+        }
+        updateDepartureCardSummary(card, departure);
+        updateDepartureValidation(card, departure);
+        if (["startAt", "endAt"].includes(field) && departureIsHistorical(departure)) renderDepartureEditor();
+      };
+      $("departure-editor").onscroll = () => {
+        const cards = [...$("departure-editor").querySelectorAll(".departure-card")];
+        if (!cards.length) return;
+        activeDepartureIndex = cards.reduce(
+          (nearest, card, index) =>
+            Math.abs(card.offsetLeft - $("departure-editor").offsetLeft - $("departure-editor").scrollLeft) <
+            Math.abs(cards[nearest].offsetLeft - $("departure-editor").offsetLeft - $("departure-editor").scrollLeft)
+              ? index
+              : nearest,
+          0
+        );
+        updateDepartureCarousel();
+      };
+      $("departure-prev").onclick = () => showDepartureSlide(activeDepartureIndex - 1);
+      $("departure-next").onclick = () => showDepartureSlide(activeDepartureIndex + 1);
+      $("departure-editor").onclick = e => {
+        const button = e.target.closest("[data-departure-action]");
+        if (!button) return;
+        const index = Number(button.closest("[data-departure-index]")?.dataset.departureIndex);
+        if (button.dataset.departureAction === "delete") {
+          const departure = departureState[index];
+          if (!departure) return;
+          if (departureIsHistorical(departure)) {
+            notify("歷史梯次僅供查看，不可刪除");
+            return;
+          }
+          const occupied = occupiedQuantity(departure.id);
+          if (occupied > 0) {
+            departure.status = "CANCELLED";
+            departure.updatedAt = "2026-09-06 14:20:00";
+            renderDepartureEditor();
+            notify(`此梯次已有 ${occupied} 位訂單旅客，已改為「已取消」並保留歷史關聯`);
+            return;
+          }
+          departureState.splice(index, 1);
+          activeDepartureIndex = Math.min(index, Math.max(0, departureState.length - 1));
+          renderDepartureEditor();
+          notify("出發梯次已刪除");
+        }
+      };
+      $("add-departure").onclick = () => {
+        departureState.push(newDeparture());
+        activeDepartureIndex = departureState.length - 1;
+        renderDepartureEditor();
+        notify("已新增出發梯次");
+      };
+      $("form-status").onchange = updateFormStatusTag;
       $("trips").onclick = e => {
         const b = e.target.closest("[data-action]");
         if (!b) return;
         const t = trips.find(t => t.id === Number(b.dataset.id));
         if (b.dataset.action === "edit") openForm(t);
         if (b.dataset.action === "detail")
-          modal(
-            "行程詳情",
-            `<h2>${esc(t.name)}</h2><p>${esc(t.summary)}</p><p><span class="tag ${t.status}">${labels[t.status]} · ${t.status}</span></p><p>售價：NT$ ${t.price.toLocaleString()} / 人　｜　圖片：${t.photos.length} 張</p><p style="white-space:pre-wrap">${esc(t.content || "詳細內容待編輯。")}</p><p style="white-space:pre-wrap">備註：${esc(t.comment || "—")}</p><p class="pending">上架狀態目前尚未存在於 trip ERD，等待 Backend Contract。</p><p class="note">建立：${esc(t.createdAt)}　更新：${esc(t.updatedAt)}</p>`
-          );
+          modal("行程詳情", renderTripReadOnly(buildTripReadOnlyModel(t), { context: "detail" }), { variant: "trip-detail" });
         if (b.dataset.action === "depart")
           modal(
             "管理梯次",
-            `<p>${esc(t.name)}</p>${t.departures.length ? `<table><thead><tr><th>開始時間</th><th>結束時間</th><th>名額</th></tr></thead><tbody>${t.departures.map(d => `<tr><td>${esc(d.startTime)}</td><td>${esc(d.endTime)}</td><td>${d.capacity}</td></tr>`).join("")}</tbody></table>` : '<p class="muted">尚無出發梯次，可由編輯行程的「出發梯次」設定。</p>'}<p class="pending">目前 ERD 的 trip_departure 僅有 start_time / end_time，尚無出發日期與回程日期。跨日旅遊梯次所需 DATE/TIMESTAMP 欄位需待 Backend Contract 確認。</p>`
+            `<p><strong>${esc(t.name)}</strong></p><p class="info">結束或取消的歷史梯次會保留訂單關聯，僅供查詢與詳情檢視；請到「出發梯次」頁切換範圍並管理目前梯次。</p>${
+              t.departures.length
+                ? `<div class="table-wrap"><table><thead><tr><th>梯次</th><th>出發／回程</th><th>狀態</th><th>梯次售價</th><th>總名額</th><th>已占用</th><th>剩餘</th></tr></thead><tbody>${t.departures
+                    .map((d, index) => {
+                      const a = departureAvailability(d);
+                      return `<tr><td>#${index + 1}<small class="note">ID ${d.id}</small></td><td>${esc(formatDateTime(d.startAt))}<small class="note">至 ${esc(formatDateTime(d.endAt))} · ${esc(d.timeZone)}</small></td><td>${statusChip(a.label, a.tone)}</td><td>NT$ ${Number(d.price || 0).toLocaleString()}</td><td>${Number(d.capacity || 0)}</td><td>${a.occupied}</td><td>${a.remaining}</td></tr><tr><td colspan="7" style="text-align:left;background:#fafafa"><strong>集合：</strong>${esc(d.meetingPlace || "—")}　<strong>報名：</strong>${esc(formatDateTime(d.bookingOpenAt))} ～ ${esc(formatDateTime(d.bookingCloseAt))}${d.note ? `<small class="note">備註：${esc(d.note)}</small>` : ""}</td></tr>`;
+                    })
+                    .join("")}</tbody></table></div>`
+                : '<p class="muted">尚無出發梯次，可由編輯行程的「出發梯次」設定。</p>'
+            }<p class="pending">目前 ERD 僅確認 start_time / end_time / capacity；本原型展示建議的完整可販售梯次 Contract，仍待 Backend 與 DB 採納。</p>`,
+            { variant: "trip-detail" }
           );
-        if (b.dataset.action === "status")
+        if (b.dataset.action === "status") {
+          if (t.status !== "PUBLISHED") {
+            const validationError = validatePublishData(t);
+            if (validationError) {
+              modal(
+                "無法上架",
+                `<p>${esc(validationError.message)}</p><p class="note">列表上架與編輯流程使用相同的 Publish validation。</p><button type="button" class="primary" id="edit-status">前往編輯補齊</button>`
+              );
+              $("edit-status").onclick = () => {
+                $("dialog").close();
+                openForm(t);
+                showStep(validationError.step);
+              };
+              return;
+            }
+          }
           modal(
             "確認" + (t.status === "PUBLISHED" ? "下架" : "上架"),
-            `<p>確定要${t.status === "PUBLISHED" ? "下架" : "上架"}「${esc(t.name)}」？</p><p class="note">Prototype only，尚未對應 DB persistence。</p><button class="primary" id="confirm-status">確認</button>`
+            `<p>確定要${t.status === "PUBLISHED" ? "下架" : "上架"}「${esc(t.name)}」？</p><p class="note">Prototype only，尚未對應 DB persistence。</p><button type="button" class="primary" id="confirm-status">確認</button>`
           );
+        }
         if ($("confirm-status"))
           $("confirm-status").onclick = () => {
             t.status = t.status === "PUBLISHED" ? "UNPUBLISHED" : "PUBLISHED";
-            t.updatedAt = "2026-09-05 14:20:00";
+            t.updatedAt = "2026-09-06 14:20:00";
             $("dialog").close();
             render();
             notify("行程已" + labels[t.status] + "（Prototype only）");
@@ -2038,11 +4220,8 @@
         const b = e.target.closest("[data-report-action]");
         if (b) openReportDrawer(b.dataset.report);
       };
-      $("depart-nav").onclick = () =>
-        modal(
-          "出發梯次",
-          `<p>請從行程列表選擇「管理梯次」，檢視指定行程的開始時間、結束時間與名額。</p><p class="note">目前共有 ${trips.reduce((sum, t) => sum + t.departures.length, 0)} 個模擬梯次。</p>`
-        );
+      $("depart-nav").onclick = showDepartures;
+      window.addEventListener("resize", updateDepartureGroupControls);
       document
         .querySelectorAll("[data-placeholder]")
         .forEach(b => (b.onclick = () => notify(b.dataset.placeholder + "為導覽示意，請檢視行程管理")));
