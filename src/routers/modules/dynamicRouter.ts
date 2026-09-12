@@ -40,6 +40,62 @@ const DYNAMIC_ROUTE_CATALOG: Menu.MenuOptions[] = [
         }
       }
     ]
+  },
+  {
+    path: "/forum",
+    name: "forum",
+    meta: {
+      icon: "ChatDotRound",
+      title: "討論區管理",
+      isHide: false,
+      isFull: false,
+      isAffix: false,
+      isKeepAlive: false
+    },
+    children: [
+      {
+        path: "/forum/postManage",
+        name: "postManage",
+        component: "/forum/postManage/index",
+        meta: {
+          icon: "Document",
+          title: "貼文管理",
+          isHide: false,
+          isFull: false,
+          isAffix: false,
+          isKeepAlive: true,
+          requiredPermission: "POST_READ"
+        }
+      },
+      {
+        path: "/forum/reportManage",
+        name: "reportManage",
+        component: "/forum/reportManage/index",
+        meta: {
+          icon: "Warning",
+          title: "檢舉管理",
+          isHide: false,
+          isFull: false,
+          isAffix: false,
+          isKeepAlive: true,
+          requiredPermission: "ADMIN_REPORT_READ"
+        }
+      },
+      {
+        path: "/forum/categoryManage",
+        name: "categoryManage",
+        component: "/forum/categoryManage/index",
+        meta: {
+          icon: "CollectionTag",
+          title: "分類管理",
+          isHide: false,
+          isFull: false,
+          isAffix: false,
+          isKeepAlive: true,
+          requiredPermission: "CATEGORY_READ"
+        }
+      }
+    ]
   }
 ];
 
@@ -65,8 +121,7 @@ const removeDynamicRoutes = () => {
 
 const resolveComponent = (route: Menu.MenuOptions): Menu.MenuOptions => ({
   ...route,
-  component:
-    typeof route.component === "string" ? modules[`/src/views${route.component}.vue`] : route.component,
+  component: typeof route.component === "string" ? modules[`/src/views${route.component}.vue`] : route.component,
   children: route.children?.map(resolveComponent)
 });
 
@@ -74,7 +129,7 @@ export const isKnownPermissionPath = (path: string) =>
   DYNAMIC_ROUTE_CATALOG.some(route => route.path === path || route.children?.some(child => child.path === path));
 
 export const initDynamicRouter = async (force = false) => {
-  if (initPromise) return initPromise;
+  if (initPromise && !force) return initPromise;
 
   initPromise = (async () => {
     const authStore = useAuthStore();

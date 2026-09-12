@@ -130,6 +130,91 @@ export namespace AdminUser {
   }
 }
 
+// 討論區管理模組
+export namespace AdminForum {
+  export type PostStatus = "ACTIVE" | "INACTIVE";
+
+  export interface UserSummary {
+    id: string;
+    nickname: string | null;
+    avatar: string | null;
+  }
+
+  export interface AdminPostResponse {
+    id: number;
+    title: string;
+    content: string;
+    viewCount: number;
+    status: PostStatus;
+    createAt: string | null;
+    updateTime: string | null;
+    categoryId: number | null;
+    categoryName: string | null;
+    author: UserSummary | null;
+  }
+
+  export interface AdminPostPageResponse {
+    list: AdminPostResponse[];
+    total: number;
+    pageNum: number;
+    pageSize: number;
+  }
+
+  export interface AdminPostPageParams extends ReqPage {
+    keyword?: string;
+    status?: PostStatus;
+    categoryId?: number;
+  }
+
+  export interface Category {
+    id: number;
+    name: string;
+  }
+
+  export interface CategoryMutationParams {
+    name: string;
+  }
+
+  export type ReportStatus = "PENDING" | "REVIEWED" | "REJECTED";
+  export type ReportReason = "MISINFORMATION" | "SPAM" | "HARASSMENT" | "SCAM_OR_ILLEGAL" | "PRIVACY_VIOLATION" | "ADULT_CONTENT";
+  export type ReportTargetType = "POST" | "COMMENT";
+  export interface AdminReportParentPost {
+    id: number;
+    title: string;
+  }
+  export type AdminReportTarget = {
+    id: number;
+    content: string;
+    author: UserSummary | null;
+    createAt: string | null;
+  } & ({ type: "POST"; title: string } | { type: "COMMENT"; parentPost: AdminReportParentPost | null });
+  export interface AdminReportResponse {
+    id: number;
+    reason: ReportReason;
+    status: ReportStatus;
+    createAt: string | null;
+    reporter: UserSummary | null;
+    target: AdminReportTarget;
+  }
+  export interface AdminReportPageParams extends ReqPage {
+    status?: ReportStatus;
+    reason?: ReportReason;
+    targetType?: ReportTargetType;
+  }
+  export interface AdminReportPageResponse extends ReqPage {
+    list: AdminReportResponse[];
+    total: number;
+  }
+  export interface AdminReportSummary {
+    pending: number;
+    reviewed: number;
+    rejected: number;
+  }
+  export interface AdminReportStatusParams {
+    status: "REVIEWED" | "REJECTED";
+  }
+}
+
 export interface ApiFieldError {
   field: string;
   message: string;

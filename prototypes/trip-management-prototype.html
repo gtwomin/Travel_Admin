@@ -33,15 +33,12 @@
   Pending Backend Contract (Purchase): exact order number column, order status naming/values,
   payment method/transaction identifier, historical Trip snapshot strategy,
   and truncated ERD VARCHAR column names.
-  Community ERD-aligned: POST.id, POST.userId, POST.title, POST.content,
-  POST.categoryId, POST.createTime, POST.updateTime, POST.viewCount,
-  IMAGE.postId, IMAGE.userId, COMMENT.postId, COMMENT.userId, COMMENT.text,
-  COMMENT.createTime, POST_LIKE.postId, POST_LIKE.userId, COLLECT_POST.postId,
-  COLLECT_POST.userId, REPORT.id, REPORT.postId, REPORT.reason,
-  REPORT.status, REPORT.createAt. Derived presentation fields: commentCount, reportCount,
-  postLikeCount, collectCount, category name and relational display joins.
-  Pending Backend Contract (Community): POST/COMMENT moderation status, REPORT reporter userId,
-  comment reporting support, and any truncated community VARCHAR columns.
+  Community Forum API-aligned: Category.id / name; Post.id, title, content, viewCount,
+  status, createAt, updateTime, categoryId, categoryName and author summary; Report.id,
+  reason, status, createAt, postId, commentId and reporter summary. The Forum prototype
+  uses ACTIVE-only post listing, soft-delete down action, status-specific report listing,
+  post/comment report targets and the complete Category CRUD contract. It does not invent
+  unsupported post detail, report target content, moderation fields or derived counters.
 -->
     <style>
       /* stylelint-disable declaration-block-single-line-max-declarations */
@@ -254,6 +251,30 @@
         display: flex;
         gap: 12px;
         margin-left: auto;
+      }
+      .status-tabs {
+        display: flex;
+        gap: 8px;
+        padding: 4px;
+        margin-bottom: 14px;
+        background: #f5f7fa;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+      }
+      .status-tabs button {
+        padding: 7px 14px;
+        color: var(--muted);
+        background: transparent;
+        border-color: transparent;
+      }
+      .status-tabs button.selected {
+        color: var(--primary);
+        background: white;
+        border-color: var(--primary);
+      }
+      .status-tabs button span {
+        margin-left: 4px;
+        font-size: 12px;
       }
       .toolbar {
         display: flex;
@@ -1637,7 +1658,8 @@
         </div>
         <button id="community-menu" aria-expanded="true">◉ <span>討論區管理</span><span class="chevron">⌃</span></button>
         <div id="community-sub" class="menu">
-          <button class="child" id="posts-nav">貼文管理</button><button class="child" id="reports-nav">檢舉管理</button>
+          <button class="child" id="posts-nav">貼文管理</button><button class="child" id="reports-nav">檢舉管理</button
+          ><button class="child" id="categories-nav">分類管理</button>
         </div>
         <button id="system-menu" aria-expanded="true">⚙ <span>系統管理</span><span class="chevron">⌃</span></button>
         <div id="system-sub" class="menu"><button class="child" id="account-nav">帳號管理</button></div>
@@ -1991,47 +2013,27 @@
             </div>
             <form class="search" id="post-search">
               <div class="filter">
-                <label for="post-keyword">關鍵字：</label><input id="post-keyword" placeholder="請輸入標題或內容" />
-              </div>
-              <div class="filter">
-                <label for="post-category">分類：</label
-                ><select id="post-category">
-                  <option value="">全部分類</option>
-                </select>
-              </div>
-              <div class="filter">
-                <label for="post-author">作者：</label
-                ><select id="post-author">
-                  <option value="">全部作者</option>
-                </select>
-              </div>
-              <div class="filter">
-                <label for="post-reports">是否有檢舉：</label
-                ><select id="post-reports">
-                  <option value="">全部</option>
-                  <option value="yes">有檢舉</option>
-                  <option value="no">無檢舉</option>
-                </select>
+                <label for="post-keyword">標題關鍵字：</label><input id="post-keyword" placeholder="請輸入貼文標題" />
               </div>
               <div class="search-actions">
                 <button class="primary" type="submit">⌕ 搜尋</button><button type="reset">↺ 重置</button>
               </div>
             </form>
             <p class="contract-note">
-              Post 管理僅提供查看；目前 POST ERD 尚無 moderation status，因此不提供編輯、刪除或隱藏操作。
+              對應 GET /api/v1/posts?title={title}&amp;p={page}，列表僅呈現 ACTIVE 貼文；「下架」模擬 DELETE
+              /api/v1/posts/{postId} 的軟刪除。
             </p>
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
                     <th>Post ID</th>
-                    <th>標題</th>
+                    <th>標題 / 內容摘要</th>
                     <th>作者</th>
                     <th>分類</th>
                     <th>瀏覽數</th>
-                    <th>留言數</th>
-                    <th>檢舉數</th>
                     <th>發布時間</th>
+                    <th>更新時間</th>
                     <th>操作</th>
                   </tr>
                 </thead>
@@ -2039,8 +2041,8 @@
               </table>
             </div>
             <div class="pagination">
-              <span id="post-total"></span><span>10 筆 / 頁</span><button disabled>‹</button><button class="primary">1</button
-              ><button disabled>›</button>
+              <span id="post-total"></span><span>10 筆 / 頁</span><button id="post-prev" aria-label="上一頁">‹</button
+              ><button class="primary" id="post-page">1</button><button id="post-next" aria-label="下一頁">›</button>
             </div>
           </div>
         </section>
@@ -2050,34 +2052,25 @@
               <div><h1>檢舉管理</h1></div>
               <button class="circle" id="report-refresh" aria-label="重新整理檢舉列表">↻</button>
             </div>
-            <form class="search" id="report-search">
-              <div class="filter">
-                <label for="report-reason">原因：</label><input id="report-reason" placeholder="請輸入檢舉原因" />
-              </div>
-              <div class="filter">
-                <label for="report-status">狀態：</label
-                ><select id="report-status">
-                  <option value="">全部狀態</option>
-                  <option value="PENDING">待處理</option>
-                  <option value="PROCESSED">已處理</option>
-                  <option value="REJECTED">已駁回</option>
-                </select>
-              </div>
-              <div class="filter"><label for="report-date">日期：</label><input id="report-date" type="date" /></div>
-              <div class="search-actions">
-                <button class="primary" type="submit">⌕ 搜尋</button><button type="reset">↺ 重置</button>
-              </div>
-            </form>
+            <div class="status-tabs" id="report-status-tabs" role="tablist" aria-label="檢舉狀態">
+              <button type="button" class="selected" data-report-status="PENDING" role="tab" aria-selected="true">
+                待處理 <span>0</span>
+              </button>
+              <button type="button" data-report-status="REVIEWED" role="tab" aria-selected="false">已處理 <span>0</span></button>
+              <button type="button" data-report-status="REJECTED" role="tab" aria-selected="false">已駁回 <span>0</span></button>
+            </div>
             <p class="contract-note">
-              REPORT 列表由 REPORT.postId 關聯 POST.title；reporter userId 與留言檢舉支援等待 Backend Contract。
+              對應 GET /api/v1/admin/reports?status={status}&amp;p={page}，目前每頁 20 筆；檢舉可指向貼文或留言。
             </p>
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
                     <th>Report ID</th>
-                    <th>被檢舉貼文</th>
-                    <th>原因</th>
+                    <th>檢舉類型</th>
+                    <th>被檢舉內容 ID</th>
+                    <th>檢舉人</th>
+                    <th>檢舉原因</th>
                     <th>狀態</th>
                     <th>建立時間</th>
                     <th>操作</th>
@@ -2087,9 +2080,33 @@
               </table>
             </div>
             <div class="pagination">
-              <span id="report-total"></span><span>10 筆 / 頁</span><button disabled>‹</button><button class="primary">1</button
-              ><button disabled>›</button>
+              <span id="report-total"></span><span>20 筆 / 頁</span><button id="report-prev" aria-label="上一頁">‹</button
+              ><button class="primary" id="report-page">1</button><button id="report-next" aria-label="下一頁">›</button>
             </div>
+          </div>
+        </section>
+        <section id="category-view" hidden>
+          <div class="card">
+            <div class="toolbar">
+              <div><h1>分類管理</h1></div>
+              <button class="primary" id="create-category">＋ 新增分類</button>
+            </div>
+            <p class="contract-note">
+              對應 /api/v1/admin/category 的新增、編輯與刪除 API。含有 ACTIVE 貼文的分類刪除時，模擬 API 回傳 409 衝突。
+            </p>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Category ID</th>
+                    <th>分類名稱</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="categories"></tbody>
+              </table>
+            </div>
+            <div class="pagination"><span id="category-total"></span></div>
           </div>
         </section>
       </main>
@@ -2117,6 +2134,9 @@
         departureStatusLabels = { DRAFT: "草稿", OPEN: "開放報名", CLOSED: "停止報名", CANCELLED: "已取消" },
         prototypeNow = new Date("2026-09-06T12:00:00+08:00");
       const names = ["基本資料", "行程圖片", "每日行程", "出發梯次", "販售設定", "預覽與上架"];
+      let forumPostPage = 1,
+        forumReportPage = 1,
+        reportStatusFilter = "PENDING";
       // Canonical mock Trip fields mirror the ERD. status is prototype-only pending backend contract.
       const trips = [
         {
@@ -2649,89 +2669,77 @@
           refundedAt: "2026-08-29 10:15:00"
         }
       ];
-      // Community relational mock. Image viewSrc is prototype-only presentation state;
-      // no moderation or unknown truncated VARCHAR fields are asserted as API schema.
-      const communityUsers = [
-        { id: "U001", name: "Alice Chen" },
-        { id: "U002", name: "Ben Wu" },
-        { id: "U003", name: "Cindy Lin" }
-      ];
       const categories = [
-        { id: "CAT1", name: "旅遊分享" },
-        { id: "CAT2", name: "行程提問" },
-        { id: "CAT3", name: "旅遊情報" }
+        { id: 1, name: "旅遊分享" },
+        { id: 2, name: "行程提問" },
+        { id: 3, name: "旅遊情報" }
       ];
       const posts = [
         {
-          id: "P001",
-          userId: "U001",
+          id: 1001,
           title: "京都秋日散步：三條適合慢慢走的路線",
           content: "分享嵐山、哲學之道與祇園的散步筆記，歡迎補充你最喜歡的季節。",
-          categoryId: "CAT1",
-          createTime: "2026-08-20 10:20:00",
+          viewCount: 1280,
+          status: "ACTIVE",
+          createAt: "2026-08-20 10:20:00",
           updateTime: "2026-08-21 09:00:00",
-          viewCount: 1280
+          categoryId: 1,
+          categoryName: "旅遊分享",
+          author: { id: "a1b2c3d4-1111-4aaa-8bbb-123456789001", nickname: "Alice Chen", avatar: null }
         },
         {
-          id: "P002",
-          userId: "U002",
+          id: 1002,
           title: "第一次去花蓮，三天行程怎麼安排？",
           content: "想安排山海景色，也想留一些時間吃在地美食，請大家分享建議。",
-          categoryId: "CAT2",
-          createTime: "2026-08-24 14:05:00",
+          viewCount: 486,
+          status: "ACTIVE",
+          createAt: "2026-08-24 14:05:00",
           updateTime: "2026-08-24 14:05:00",
-          viewCount: 486
+          categoryId: 2,
+          categoryName: "行程提問",
+          author: { id: "a1b2c3d4-1111-4aaa-8bbb-123456789002", nickname: "Ben Wu", avatar: null }
         },
         {
-          id: "P003",
-          userId: "U003",
+          id: 1003,
           title: "本週末台南光影展情報",
           content: "整理幾個適合週末走訪的展覽與夜間活動。",
-          categoryId: "CAT3",
-          createTime: "2026-08-29 18:30:00",
+          viewCount: 92,
+          status: "ACTIVE",
+          createAt: "2026-08-29 18:30:00",
           updateTime: "2026-08-29 18:30:00",
-          viewCount: 92
+          categoryId: 3,
+          categoryName: "旅遊情報",
+          author: { id: "a1b2c3d4-1111-4aaa-8bbb-123456789003", nickname: "Cindy Lin", avatar: null }
         }
-      ];
-      const images = [
-        { id: "IM001", postId: "P001", userId: "U001", color: "#88a6a0", viewSrc: null },
-        { id: "IM002", postId: "P001", userId: "U001", color: "#a99ebd", viewSrc: null }
-      ];
-      const comments = [
-        {
-          id: "CM001",
-          postId: "P001",
-          userId: "U002",
-          text: "哲學之道傍晚真的很漂亮，謝謝分享！",
-          createTime: "2026-08-20 12:10:00"
-        },
-        {
-          id: "CM002",
-          postId: "P001",
-          userId: "U003",
-          text: "祇園建議早上前往，人潮比較少。",
-          createTime: "2026-08-21 08:45:00"
-        },
-        {
-          id: "CM003",
-          postId: "P002",
-          userId: "U001",
-          text: "可以安排一天走縱谷，交通會比較順。",
-          createTime: "2026-08-24 15:25:00"
-        }
-      ];
-      const postLikes = [
-        { id: "L001", postId: "P001", userId: "U002" },
-        { id: "L002", postId: "P001", userId: "U003" },
-        { id: "L003", postId: "P002", userId: "U001" }
-      ];
-      const collectPosts = [
-        { id: "CL001", postId: "P001", userId: "U002" },
-        { id: "CL002", postId: "P001", userId: "U003" }
       ];
       const reports = [
-        { id: "R001", postId: "P001", reason: "內容與標題不符", status: "PENDING", createAt: "2026-08-21 11:30:00" },
-        { id: "R002", postId: "P001", reason: "疑似重複內容", status: "PROCESSED", createAt: "2026-08-22 09:15:00" }
+        {
+          id: 5001,
+          postId: 1001,
+          commentId: null,
+          reason: "MISINFORMATION",
+          status: "PENDING",
+          createAt: "2026-08-21 11:30:00",
+          reporter: { id: "b2c3d4e5-2222-4bbb-8ccc-223456789001", nickname: "Dora Huang", avatar: null }
+        },
+        {
+          id: 5002,
+          postId: null,
+          commentId: 3002,
+          reason: "HARASSMENT",
+          status: "REVIEWED",
+          createAt: "2026-08-22 09:15:00",
+          reporter: { id: "b2c3d4e5-2222-4bbb-8ccc-223456789002", nickname: "Ethan Lin", avatar: null }
+        },
+        {
+          id: 5003,
+          postId: 1003,
+          commentId: null,
+          reason: "SPAM",
+          status: "REJECTED",
+          createAt: "2026-08-29 20:15:00",
+          reporter: { id: "b2c3d4e5-2222-4bbb-8ccc-223456789003", nickname: "Fiona Chen", avatar: null }
+        }
       ];
       function esc(s) {
         return String(s ?? "").replace(
@@ -3591,13 +3599,22 @@
         $("posts-nav").toggleAttribute("aria-current", view === "posts");
         $("reports-nav").classList.toggle("active", view === "reports");
         $("reports-nav").toggleAttribute("aria-current", view === "reports");
+        $("categories-nav").classList.toggle("active", view === "categories");
+        $("categories-nav").toggleAttribute("aria-current", view === "categories");
         $("account-nav").classList.toggle("active", view === "account");
         $("account-nav").toggleAttribute("aria-current", view === "account");
       }
       function hideViews() {
-        ["list-view", "departure-view", "form-view", "account-view", "purchase-view", "post-view", "report-view"].forEach(
-          id => ($(id).hidden = true)
-        );
+        [
+          "list-view",
+          "departure-view",
+          "form-view",
+          "account-view",
+          "purchase-view",
+          "post-view",
+          "report-view",
+          "category-view"
+        ].forEach(id => ($(id).hidden = true));
         $("drawer-backdrop").hidden = true;
       }
       function showAccounts() {
@@ -3726,31 +3743,28 @@
       function closeDrawer() {
         $("drawer-backdrop").hidden = true;
       }
-      function communityUser(id) {
-        return communityUsers.find(u => u.id === id) || { name: "未知作者" };
-      }
       function categoryName(id) {
         return categories.find(c => c.id === id)?.name || "未分類";
       }
-      function postReports(postId) {
-        return reports.filter(r => r.postId === postId);
-      }
-      function postImages(postId) {
-        return images.filter(i => i.postId === postId);
-      }
-      function postComments(postId) {
-        return comments.filter(c => c.postId === postId);
-      }
-      function postImageMarkup(image, alt) {
-        return image.viewSrc
-          ? `<img class="cover" src="${image.viewSrc}" alt="${esc(alt)}">`
-          : landscape(image.color || "#88a6a0");
-      }
       function reportStatusLabel(status) {
-        return status === "PENDING" ? "待處理" : status === "PROCESSED" ? "已處理" : "已駁回";
+        return { PENDING: "待處理", REVIEWED: "已處理", REJECTED: "已駁回" }[status] || status;
       }
       function reportStatusTone(status) {
         return status === "PENDING" ? "warning" : status === "REJECTED" ? "danger" : "success";
+      }
+      const reportReasonLabels = {
+        MISINFORMATION: "不實資訊",
+        SPAM: "垃圾訊息／廣告",
+        HARASSMENT: "騷擾或謾罵",
+        SCAM_OR_ILLEGAL: "詐騙或非法交易",
+        PRIVACY_VIOLATION: "隱私侵害",
+        ADULT_CONTENT: "不雅／成人內容"
+      };
+      function reportReasonLabel(reason) {
+        return reportReasonLabels[reason] || reason;
+      }
+      function reportTarget(report) {
+        return report.postId != null ? { type: "貼文", id: report.postId } : { type: "留言", id: report.commentId };
       }
       function showPosts() {
         hideViews();
@@ -3758,7 +3772,6 @@
         $("breadcrumb").textContent = "討論區管理 / 貼文管理";
         $("tab-title").textContent = "◉ 貼文管理";
         setActive("posts");
-        populateCommunityFilters();
         renderPosts();
       }
       function showReports() {
@@ -3769,93 +3782,194 @@
         setActive("reports");
         renderReports();
       }
-      function populateCommunityFilters() {
-        if ($("post-category").options.length === 1)
-          $("post-category").insertAdjacentHTML(
-            "beforeend",
-            categories.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")
-          );
-        if ($("post-author").options.length === 1)
-          $("post-author").insertAdjacentHTML(
-            "beforeend",
-            communityUsers.map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join("")
-          );
+      function showCategories() {
+        hideViews();
+        $("category-view").hidden = false;
+        $("breadcrumb").textContent = "討論區管理 / 分類管理";
+        $("tab-title").textContent = "◉ 分類管理";
+        setActive("categories");
+        renderCategories();
       }
       function renderPosts() {
-        const q = ($("post-keyword").value || "").trim().toLowerCase(),
-          category = $("post-category").value,
-          author = $("post-author").value,
-          hasReport = $("post-reports").value;
-        const rows = posts.filter(p => {
-          const rs = postReports(p.id);
-          return (
-            (!q || `${p.title} ${p.content}`.toLowerCase().includes(q)) &&
-            (!category || p.categoryId === category) &&
-            (!author || p.userId === author) &&
-            (!hasReport || (hasReport === "yes" ? rs.length > 0 : rs.length === 0))
-          );
-        });
+        const q = ($("post-keyword").value || "").trim().toLowerCase();
+        const rows = posts.filter(p => p.status === "ACTIVE" && (!q || p.title.toLowerCase().includes(q)));
+        const totalPages = Math.max(1, Math.ceil(rows.length / 10));
+        forumPostPage = Math.min(forumPostPage, totalPages);
+        const pageRows = rows.slice((forumPostPage - 1) * 10, forumPostPage * 10);
         $("posts").innerHTML =
-          rows
-            .map(p => {
-              const rs = postReports(p.id),
-                cs = postComments(p.id),
-                u = communityUser(p.userId);
-              return `<tr><td>${esc(p.id)}</td><td class="trip-name">${esc(p.title)}<small>${esc(p.content.slice(0, 42))}${p.content.length > 42 ? "…" : ""}</small></td><td>${esc(u.name)}</td><td>${esc(categoryName(p.categoryId))}</td><td>${p.viewCount.toLocaleString()}</td><td>${cs.length}</td><td>${rs.length}</td><td class="date">${esc(p.createTime)}</td><td class="actions"><div><button class="link" data-post="${p.id}" data-post-action="detail">詳情</button>${rs.length ? `<button class="link warning" data-post="${p.id}" data-post-action="reports">查看檢舉</button>` : ""}</div></td></tr>`;
-            })
-            .join("") || '<tr><td colspan="9" style="height:260px;color:#909399">暫無貼文資料，請調整搜尋條件</td></tr>';
+          pageRows
+            .map(
+              p =>
+                `<tr><td>${esc(p.id)}</td><td class="trip-name">${esc(p.title)}<small>${esc(p.content.slice(0, 42))}${p.content.length > 42 ? "…" : ""}</small></td><td>${esc(p.author.nickname)}</td><td>${esc(p.categoryName || categoryName(p.categoryId))}</td><td>${p.viewCount.toLocaleString()}</td><td class="date">${esc(p.createAt)}</td><td class="date">${esc(p.updateTime)}</td><td class="actions"><button class="link danger" data-post="${p.id}" data-post-action="down">下架</button></td></tr>`
+            )
+            .join("") || '<tr><td colspan="8" style="height:260px;color:#909399">暫無 ACTIVE 貼文資料，請調整搜尋條件</td></tr>';
         $("post-total").textContent = `共 ${rows.length} 筆`;
+        $("post-page").textContent = forumPostPage;
+        $("post-prev").disabled = forumPostPage === 1;
+        $("post-next").disabled = forumPostPage === totalPages;
       }
       function renderReports() {
-        const reason = ($("report-reason").value || "").trim().toLowerCase(),
-          status = $("report-status").value,
-          date = $("report-date").value;
-        const rows = reports.filter(r => {
-          const p = posts.find(post => post.id === r.postId);
-          return (
-            (!reason || r.reason.toLowerCase().includes(reason)) &&
-            (!status || r.status === status) &&
-            (!date || r.createAt.startsWith(date))
-          );
-        });
+        const rows = reports.filter(r => r.status === reportStatusFilter);
+        const totalPages = Math.max(1, Math.ceil(rows.length / 20));
+        forumReportPage = Math.min(forumReportPage, totalPages);
+        const pageRows = rows.slice((forumReportPage - 1) * 20, forumReportPage * 20);
         $("reports").innerHTML =
-          rows
+          pageRows
             .map(r => {
-              const p = posts.find(post => post.id === r.postId);
-              return `<tr><td>${esc(r.id)}</td><td class="trip-name">${esc(p?.title || "未知貼文")}<small>${esc(r.postId)}</small></td><td>${esc(r.reason)}</td><td>${statusChip(reportStatusLabel(r.status), reportStatusTone(r.status))}</td><td class="date">${esc(r.createAt)}</td><td><button class="link" data-report="${r.id}" data-report-action="review">${r.status === "PENDING" ? "審核" : "查看"}</button></td></tr>`;
+              const target = reportTarget(r);
+              return `<tr><td>${esc(r.id)}</td><td>${target.type}</td><td>${esc(target.id)}</td><td>${esc(r.reporter.nickname)}</td><td class="trip-name">${esc(reportReasonLabel(r.reason))}</td><td>${statusChip(reportStatusLabel(r.status), reportStatusTone(r.status))}</td><td class="date">${esc(r.createAt)}</td><td><button class="link" data-report="${r.id}" data-report-action="review">${r.status === "PENDING" ? "審核" : "查看"}</button></td></tr>`;
             })
-            .join("") || '<tr><td colspan="6" style="height:260px;color:#909399">暫無檢舉資料，請調整搜尋條件</td></tr>';
+            .join("") || '<tr><td colspan="8" style="height:260px;color:#909399">暫無此狀態的檢舉資料</td></tr>';
         $("report-total").textContent = `共 ${rows.length} 筆`;
+        $("report-page").textContent = forumReportPage;
+        $("report-prev").disabled = forumReportPage === 1;
+        $("report-next").disabled = forumReportPage === totalPages;
+        ["PENDING", "REVIEWED", "REJECTED"].forEach(status => {
+          const button = document.querySelector(`[data-report-status="${status}"]`);
+          const count = reports.filter(report => report.status === status).length;
+          button.classList.toggle("selected", reportStatusFilter === status);
+          button.setAttribute("aria-selected", String(reportStatusFilter === status));
+          button.querySelector("span").textContent = count;
+        });
       }
-      function openPostDrawer(postId) {
-        const p = posts.find(post => post.id === postId);
-        if (!p) return;
-        const u = communityUser(p.userId),
-          cs = postComments(p.id),
-          ims = postImages(p.id),
-          rs = postReports(p.id);
-        $("drawer-title").textContent = "貼文詳情";
-        $("drawer-body").innerHTML =
-          `<section class="drawer-section"><h3>基本資訊</h3><dl class="description-grid"><dt>作者</dt><dd>${esc(u.name)}</dd><dt>分類</dt><dd>${esc(categoryName(p.categoryId))}</dd><dt>發布時間</dt><dd>${esc(p.createTime)}</dd><dt>更新時間</dt><dd>${esc(p.updateTime)}</dd><dt>瀏覽數</dt><dd>${p.viewCount.toLocaleString()}</dd><dt>留言數</dt><dd>${cs.length}</dd><dt>檢舉數</dt><dd>${rs.length}</dd></dl><p class="contract-note">POST moderation status 尚未存在於 ERD；此 Drawer 僅供檢視。</p></section><section class="drawer-section"><h3>貼文</h3><h2>${esc(p.title)}</h2><p style="white-space:pre-wrap">${esc(p.content)}</p></section><section class="drawer-section"><h3>圖片（${ims.length} 張）</h3>${ims.length ? `<div class="photo-grid">${ims.map(i => postImageMarkup(i, "貼文圖片")).join("")}</div>` : '<div class="empty-state" style="padding:25px">此貼文沒有圖片</div>'}<p class="contract-note">IMAGE 透過 postId 關聯；預覽圖為 prototype-only presentation state。</p></section><section class="drawer-section"><h3>留言（${cs.length} 則）</h3>${cs.length ? `<table><thead><tr><th>作者</th><th>內容</th><th>建立時間</th></tr></thead><tbody>${cs.map(c => `<tr><td>${esc(communityUser(c.userId).name)}</td><td style="white-space:normal;text-align:left">${esc(c.text)}</td><td class="date">${esc(c.createTime)}</td></tr>`).join("")}</tbody></table>` : '<div class="empty-state" style="padding:25px">此貼文沒有留言</div>'}<p class="contract-note">COMMENT moderation status 與留言檢舉支援等待 Backend Contract。</p></section><section class="drawer-section"><h3>互動統計</h3><p>postLikeCount：${postLikes.filter(l => l.postId === p.id).length}　｜　collectCount：${collectPosts.filter(c => c.postId === p.id).length}</p><p class="note">僅為 derived statistics，不提供 Like / Collect 管理功能。</p></section>`;
-        $("drawer-backdrop").hidden = false;
+      function renderCategories() {
+        $("categories").innerHTML =
+          categories
+            .map(
+              category =>
+                "<tr><td>" +
+                esc(category.id) +
+                '</td><td class="trip-name">' +
+                esc(category.name) +
+                '</td><td class="actions"><div><button class="link" data-category="' +
+                esc(category.id) +
+                '" data-category-action="edit">編輯</button><button class="link danger" data-category="' +
+                esc(category.id) +
+                '" data-category-action="delete">刪除</button></div></td></tr>'
+            )
+            .join("") || '<tr><td colspan="3" style="height:260px;color:#909399">暫無分類資料</td></tr>';
+        $("category-total").textContent = "共 " + categories.length + " 筆";
       }
       function openReportDrawer(reportId) {
-        const r = reports.find(report => report.id === reportId),
-          p = posts.find(post => post.id === r?.postId);
-        if (!r || !p) return;
-        const u = communityUser(p.userId),
-          ims = postImages(p.id);
-        $("drawer-title").textContent = "檢舉審核";
-        $("drawer-body").innerHTML =
-          `<section class="drawer-section"><h3>檢舉資訊</h3><dl class="description-grid"><dt>Report ID</dt><dd>${esc(r.id)}</dd><dt>原因</dt><dd>${esc(r.reason)}</dd><dt>狀態</dt><dd>${statusChip(reportStatusLabel(r.status), reportStatusTone(r.status))}</dd><dt>建立時間</dt><dd>${esc(r.createAt)}</dd></dl><p class="contract-note">REPORT reporter userId 與留言檢舉支援等待 Backend Contract。</p></section><section class="drawer-section"><h3>原始貼文</h3><dl class="description-grid"><dt>作者</dt><dd>${esc(u.name)}</dd><dt>分類</dt><dd>${esc(categoryName(p.categoryId))}</dd></dl><h2>${esc(p.title)}</h2><p style="white-space:pre-wrap">${esc(p.content)}</p>${ims.length ? `<div class="photo-grid">${ims.map(i => postImageMarkup(i, "原始貼文圖片")).join("")}</div>` : '<div class="empty-state" style="padding:25px">此貼文沒有圖片</div>'}</section><section class="drawer-section"><h3>處理</h3><p class="contract-note">目前 POST ERD 尚無 moderation status，貼文隱藏／恢復需待 Backend Contract。</p><div style="display:flex;gap:12px"><button class="danger" data-review-action="reject" ${r.status !== "PENDING" ? "disabled" : ""}>駁回檢舉</button><button class="primary" data-review-action="process" ${r.status !== "PENDING" ? "disabled" : ""}>標記已處理</button></div></section>`;
+        const r = reports.find(report => report.id === Number(reportId));
+        if (!r) return;
+        const target = reportTarget(r);
+        const details =
+          '<section class="drawer-section"><h3>檢舉資訊</h3><dl class="description-grid">' +
+          "<dt>Report ID</dt><dd>" +
+          esc(r.id) +
+          "</dd><dt>被檢舉類型</dt><dd>" +
+          target.type +
+          "</dd><dt>被檢舉內容 ID</dt><dd>" +
+          esc(target.id) +
+          "</dd><dt>檢舉人</dt><dd>" +
+          esc(r.reporter.nickname) +
+          "</dd><dt>檢舉原因</dt><dd>" +
+          esc(reportReasonLabel(r.reason)) +
+          "</dd><dt>狀態</dt><dd>" +
+          statusChip(reportStatusLabel(r.status), reportStatusTone(r.status)) +
+          "</dd><dt>建立時間</dt><dd>" +
+          esc(r.createAt) +
+          "</dd></dl></section>";
+        const actions =
+          r.status === "PENDING"
+            ? '<section class="drawer-section"><h3>處理</h3><p class="contract-note">此操作模擬 PUT /api/v1/admin/reports/' +
+              esc(r.id) +
+              '。</p><div style="display:flex;gap:12px"><button class="danger" data-review-action="reject">駁回</button><button class="primary" data-review-action="review">標記已處理</button></div></section>'
+            : '<p class="contract-note">此檢舉已完成處理，不提供其他審核操作。</p>';
+        $("drawer-title").textContent = "檢舉詳情";
+        $("drawer-body").innerHTML = details + actions;
         $("drawer-backdrop").hidden = false;
         $("drawer-body").onclick = e => {
           const b = e.target.closest("[data-review-action]");
-          if (!b || b.disabled) return;
-          r.status = b.dataset.reviewAction === "reject" ? "REJECTED" : "PROCESSED";
+          if (!b || r.status !== "PENDING") return;
+          r.status = b.dataset.reviewAction === "reject" ? "REJECTED" : "REVIEWED";
           closeDrawer();
           renderReports();
-          notify(`檢舉 ${r.id} 已更新為${reportStatusLabel(r.status)}（Mock）`);
+          notify("檢舉 " + r.id + " 已更新為" + reportStatusLabel(r.status) + "（Mock）");
+        };
+      }
+      function openCategoryForm(categoryId = null) {
+        const category = categories.find(item => item.id === categoryId);
+        modal(
+          category ? "編輯分類" : "新增分類",
+          '<form id="category-form"><div class="field"><label for="category-name"><span class="required">* </span>分類名稱</label><input id="category-name" required value="' +
+            esc(category?.name || "") +
+            '" placeholder="請輸入分類名稱" /></div><div class="form-footer"><span class="note">對應 Category.name</span><button type="submit" class="primary">' +
+            (category ? "儲存變更" : "新增分類") +
+            "</button></div></form>"
+        );
+        $("category-form").onsubmit = e => {
+          e.preventDefault();
+          const name = $("category-name").value.trim();
+          if (!name) {
+            notify("分類名稱為必填");
+            $("category-name").focus();
+            return;
+          }
+          const duplicate = categories.some(item => item.id !== categoryId && item.name === name);
+          if (duplicate) {
+            notify("分類名稱不可重複");
+            $("category-name").focus();
+            return;
+          }
+          if (category) {
+            category.name = name;
+            posts.filter(post => post.categoryId === category.id).forEach(post => (post.categoryName = name));
+          } else {
+            const id = Math.max(0, ...categories.map(item => Number(item.id))) + 1;
+            categories.push({ id, name });
+          }
+          $("dialog").close();
+          renderCategories();
+          notify(category ? "分類已更新（Mock）" : "分類已新增（Mock）");
+        };
+      }
+      function openCategoryDelete(categoryId) {
+        const category = categories.find(item => item.id === categoryId);
+        if (!category) return;
+        const hasActivePosts = posts.some(post => post.status === "ACTIVE" && post.categoryId === category.id);
+        if (hasActivePosts) {
+          modal(
+            "無法刪除分類",
+            "<p>分類「" +
+              esc(category.name) +
+              '」仍有 ACTIVE 貼文，無法刪除。</p><p class="contract-note">模擬 DELETE /api/v1/admin/category/' +
+              esc(category.id) +
+              " 回傳 409 Conflict。</p>"
+          );
+          return;
+        }
+        modal(
+          "確認刪除分類",
+          "<p>確定要刪除分類「" +
+            esc(category.name) +
+            '」？</p><button type="button" class="danger" id="confirm-category-delete">確認刪除</button>'
+        );
+        $("confirm-category-delete").onclick = () => {
+          const index = categories.indexOf(category);
+          if (index >= 0) categories.splice(index, 1);
+          $("dialog").close();
+          renderCategories();
+          notify("分類已刪除（Mock）");
+        };
+      }
+      function openPostDownConfirmation(postId) {
+        const post = posts.find(item => item.id === postId);
+        if (!post || post.status !== "ACTIVE") return;
+        modal(
+          "確認下架貼文",
+          "<p>確定要下架「" +
+            esc(post.title) +
+            '」？</p><p class="contract-note">此操作模擬 DELETE /api/v1/posts/' +
+            esc(post.id) +
+            '，貼文將從 ACTIVE 列表移除。</p><button type="button" class="danger" id="confirm-post-down">確認下架</button>'
+        );
+        $("confirm-post-down").onclick = () => {
+          post.status = "INACTIVE";
+          $("dialog").close();
+          renderPosts();
+          notify("貼文已下架（Mock）");
         };
       }
       $("departure-search").onsubmit = e => {
@@ -3946,24 +4060,55 @@
       $("purchase-search").onreset = () => setTimeout(renderOrders, 0);
       $("posts-nav").onclick = showPosts;
       $("reports-nav").onclick = showReports;
+      $("categories-nav").onclick = showCategories;
       $("post-refresh").onclick = () => {
         renderPosts();
         notify("貼文列表已重新整理");
       };
       $("post-search").onsubmit = e => {
         e.preventDefault();
+        forumPostPage = 1;
         renderPosts();
       };
       $("post-search").onreset = () => setTimeout(renderPosts, 0);
+      $("post-prev").onclick = () => {
+        if (forumPostPage > 1) {
+          forumPostPage -= 1;
+          renderPosts();
+        }
+      };
+      $("post-next").onclick = () => {
+        forumPostPage += 1;
+        renderPosts();
+      };
       $("report-refresh").onclick = () => {
         renderReports();
         notify("檢舉列表已重新整理");
       };
-      $("report-search").onsubmit = e => {
-        e.preventDefault();
+      $("report-status-tabs").onclick = e => {
+        const button = e.target.closest("[data-report-status]");
+        if (!button) return;
+        reportStatusFilter = button.dataset.reportStatus;
+        forumReportPage = 1;
         renderReports();
       };
-      $("report-search").onreset = () => setTimeout(renderReports, 0);
+      $("report-prev").onclick = () => {
+        if (forumReportPage > 1) {
+          forumReportPage -= 1;
+          renderReports();
+        }
+      };
+      $("report-next").onclick = () => {
+        forumReportPage += 1;
+        renderReports();
+      };
+      $("create-category").onclick = () => openCategoryForm();
+      $("categories").onclick = e => {
+        const button = e.target.closest("[data-category-action]");
+        if (!button) return;
+        if (button.dataset.categoryAction === "edit") openCategoryForm(Number(button.dataset.category));
+        if (button.dataset.categoryAction === "delete") openCategoryDelete(Number(button.dataset.category));
+      };
       $("close-drawer").onclick = closeDrawer;
       $("drawer-backdrop").onclick = e => {
         if (e.target.id === "drawer-backdrop") closeDrawer();
@@ -4213,8 +4358,7 @@
       $("posts").onclick = e => {
         const b = e.target.closest("[data-post-action]");
         if (!b) return;
-        if (b.dataset.postAction === "detail") openPostDrawer(b.dataset.post);
-        if (b.dataset.postAction === "reports") showReports();
+        if (b.dataset.postAction === "down") openPostDownConfirmation(Number(b.dataset.post));
       };
       $("reports").onclick = e => {
         const b = e.target.closest("[data-report-action]");
