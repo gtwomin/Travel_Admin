@@ -28,9 +28,16 @@ export const updateAdminUserProfile = (userId: string, params: FormData) => {
 
 export const resolveAvatarUrl = (avatar: string | null | undefined) => {
   if (!avatar) return "";
-  if (/^https?:\/\//i.test(avatar)) return avatar;
-  const baseUrl = String(import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
-  return `${baseUrl}/${avatar.replace(/^\//, "")}`;
+  if (/^[a-z][a-z\d+.-]*:/i.test(avatar)) return avatar;
+
+  const apiBaseUrl = String(import.meta.env.VITE_API_URL ?? "").trim();
+  const browserOrigin =
+    typeof window !== "undefined" && window.location?.origin && window.location.origin !== "null" ? window.location.origin : "";
+  const baseUrl = /^[a-z][a-z\d+.-]*:/i.test(apiBaseUrl) ? apiBaseUrl : browserOrigin;
+
+  if (!baseUrl) return avatar;
+
+  return new URL(avatar, baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`).toString();
 };
 
 /**
