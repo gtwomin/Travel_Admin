@@ -17,6 +17,7 @@ import {
   getAdminPostPage,
   getAdminReportPage,
   getAdminReportSummary,
+  unpublishAdminPost,
   updateAdminReportStatus,
   updateAdminCategory
 } from "@/api/modules/forum";
@@ -95,6 +96,12 @@ describe("討論區管理 API", () => {
 
     expect(api.getDirect).toHaveBeenCalledWith("/api/v1/admin/posts", params, { loading: false });
     expect(params).toEqual({ pageNum: 1, pageSize: 10 });
+  });
+
+  it("應透過 Admin API 下架文章", async () => {
+    await unpublishAdminPost(7);
+
+    expect(api.delete).toHaveBeenCalledWith("/api/v1/admin/posts/7", undefined, { loading: false });
   });
 
   it("應從正式分類 API 取得分類清單", async () => {

@@ -12,12 +12,12 @@
 </template>
 
 <script setup lang="tsx" name="postManage">
-import { View } from "@element-plus/icons-vue";
-import { ElButton, ElTag } from "element-plus";
+import { Delete, View } from "@element-plus/icons-vue";
+import { ElButton, ElMessage, ElMessageBox, ElTag } from "element-plus";
 import { onActivated, onMounted, reactive, ref } from "vue";
 
 import { AdminForum } from "@/api/interface";
-import { getAdminCategories, getAdminPostPage } from "@/api/modules/forum";
+import { getAdminCategories, getAdminPostPage, unpublishAdminPost } from "@/api/modules/forum";
 import { resolveAvatarUrl } from "@/api/modules/user";
 import ProTable from "@/components/ProTable/index.vue";
 import { ColumnProps, ProTableInstance, SearchRenderScope } from "@/components/ProTable/interface";
@@ -31,6 +31,7 @@ const proTable = ref<ProTableInstance>();
 const drawerRef = ref<InstanceType<typeof PostDrawer> | null>(null);
 const categoryOptions = ref<AdminForum.Category[]>([]);
 const categoryLookupDisabled = ref(!authStore.hasPermission("CATEGORY_READ"));
+const unpublishingPostId = ref<number | null>(null);
 let hasActivatedOnce = false;
 
 const statusOptions: Array<{ label: string; value: AdminForum.PostStatus; tagType: "success" | "info" }> = [
@@ -92,6 +93,28 @@ const getTableList = (params: AdminForum.AdminPostPageParams) => getAdminPostPag
 
 const openDetail = (row: AdminForum.AdminPostResponse) => {
   drawerRef.value?.acceptParams(row);
+};
+
+const unpublishPost = async (row: AdminForum.AdminPostResponse) => {
+  if (unpublishingPostId.value !== null || row.status !== "ACTIVE" || !authStore.hasPermission("ADMIN_POST_DELETE")) {
+    return;
+  }
+
+  unpublishingPostId.value = row.id;
+  try {
+    await ElMessageBox.confirm(`是否下架文章【${row.title || row.id}】？`, "下架文章", {
+      type: "warning",
+      confirmButtonText: "下架",
+      cancelButtonText: "取消"
+    });
+    await unpublishAdminPost(row.id);
+    ElMessage.success("文章下架成功");
+    await proTable.value?.getTableList();
+  } catch {
+    // 取消確認或 API 錯誤由流程自然結束，錯誤訊息由全域攔截器處理。
+  } finally {
+    unpublishingPostId.value = null;
+  }
 };
 
 const loadCategories = async () => {
@@ -175,11 +198,25 @@ const columns = reactive<ColumnProps<AdminForum.AdminPostResponse>[]>([
     prop: "operation",
     label: "操作",
     fixed: "right",
-    width: 100,
+    width: 180,
     render: ({ row }) => (
-      <ElButton type="primary" link icon={View} onClick={() => openDetail(row)}>
-        詳情
-      </ElButton>
+      <>
+        <ElButton type="primary" link icon={View} disabled={unpublishingPostId.value !== null} onClick={() => openDetail(row)}>
+          詳情
+        </ElButton>
+        {authStore.hasPermission("ADMIN_POST_DELETE") && row.status === "ACTIVE" ? (
+          <ElButton
+            type="danger"
+            link
+            icon={Delete}
+            loading={unpublishingPostId.value === row.id}
+            disabled={unpublishingPostId.value !== null}
+            onClick={() => void unpublishPost(row)}
+          >
+            下架
+          </ElButton>
+        ) : null}
+      </>
     )
   }
 ]);

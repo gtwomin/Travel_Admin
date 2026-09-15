@@ -31,6 +31,9 @@ export const getAdminPostPage = (params: AdminForum.AdminPostPageParams) => {
     .then(data => ({ data }));
 };
 
+export const unpublishAdminPost = (postId: number): Promise<void> =>
+  http.delete(`${ADMIN_SERVICE}/posts/${postId}`, undefined, { loading: false }).then(() => undefined);
+
 export const getAdminCategories = () => {
   return http.getDirect<AdminForum.Category[]>(`${ADMIN_SERVICE}/category`, undefined, { loading: false });
 };
