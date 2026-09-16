@@ -96,6 +96,34 @@ const DYNAMIC_ROUTE_CATALOG: Menu.MenuOptions[] = [
         }
       }
     ]
+  },
+  {
+    path: "/trip",
+    name: "trip",
+    redirect: "/trip/tripManage",
+    meta: {
+      icon: "MapLocation",
+      title: "行程管理",
+      isHide: false,
+      isFull: false,
+      isAffix: false,
+      isKeepAlive: false
+    },
+    children: [
+      {
+        path: "/trip/tripManage",
+        name: "tripManage",
+        component: "/trip/tripManage/index",
+        meta: {
+          icon: "Guide",
+          title: "行程列表",
+          isHide: false,
+          isFull: false,
+          isAffix: false,
+          isKeepAlive: true
+        }
+      }
+    ]
   }
 ];
 

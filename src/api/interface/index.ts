@@ -215,6 +215,134 @@ export namespace AdminForum {
   }
 }
 
+// 行程管理模組
+export namespace AdminTrip {
+  export type TripStatus = "ACTIVE" | "INACTIVE";
+  export type TravelDestination =
+    | "TAIPEI"
+    | "KAOHSIUNG"
+    | "TOKYO"
+    | "OSAKA"
+    | "KYOTO"
+    | "HOKKAIDO"
+    | "SEOUL"
+    | "BUSAN"
+    | "BANGKOK"
+    | "CHIANG_MAI"
+    | "SINGAPORE"
+    | "KUALA_LUMPUR"
+    | "SHANGHAI"
+    | "HONG_KONG"
+    | "MACAU";
+  export type TripBookingMode = "FIXED_DEPARTURE" | "FLEXIBLE_DATE";
+  export type TripProductType = "PACKAGE_TOUR" | "PRIVATE_GROUP" | "CHARTER_TOUR";
+  export type SpotTag = "ATTRACTION" | "FOOD" | "HOTEL" | "TRANSPORTATION" | "GUIDE" | "TICKET" | "SHOPPING" | "FREE_TIME";
+
+  export interface TripListResponse {
+    id: number;
+    tripName: string;
+    summary: string | null;
+    tripPrice: number;
+    destinations: TravelDestination[];
+    status: TripStatus;
+  }
+
+  export interface TripDetailResponse extends TripListResponse {
+    tripContent: string | null;
+    bookingMode: TripBookingMode;
+    productType: TripProductType;
+  }
+
+  export interface TripBaseRequest {
+    tripName: string;
+    summary: string | null;
+    tripContent: string | null;
+    tripPrice: number;
+    destinations: TravelDestination[];
+    bookingMode: TripBookingMode | null;
+    productType: TripProductType | null;
+  }
+
+  export type TripCreateRequest = TripBaseRequest;
+  export type TripUpdateRequest = TripBaseRequest;
+
+  export interface TripCreateResponse {
+    id: number;
+  }
+
+  export interface TripStatusRequest {
+    status: TripStatus;
+  }
+
+  export interface CityOptionResponse {
+    value: TravelDestination;
+    label: string;
+  }
+
+  export interface TripPhotoResponse {
+    id: number;
+    sortOrder: number;
+    imageUrl: string;
+  }
+
+  export interface TripPhotoOrderRequest {
+    photoIds: number[];
+  }
+
+  export interface TripDayRequest {
+    dayNumber: number;
+    title: string;
+    content: string | null;
+    breakfast: string | null;
+    lunch: string | null;
+    dinner: string | null;
+    hotel: string | null;
+    transportation: string | null;
+    extraFee: number | null;
+    extraFeeDescription: string | null;
+    note: string | null;
+  }
+
+  export interface TripDayResponse extends TripDayRequest {
+    id: number;
+    tripId: number;
+    createdAt: string;
+    updatedAt: string;
+  }
+
+  export interface TripSpotRequest {
+    name: string;
+    description: string | null;
+    tag: SpotTag | null;
+    sortOrder: number;
+    location: string | null;
+    startTime: string | null;
+    endTime: string | null;
+    includedInPrice: boolean | null;
+    extraFee: number | null;
+    note: string | null;
+  }
+
+  export interface TripSpotResponse extends TripSpotRequest {
+    id: number;
+    tripId: number;
+    tripDayId: number;
+    imageUrl: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }
+
+  export interface TripDepartureRequest {
+    startTime: string;
+    endTime: string;
+  }
+
+  export interface TripDepartureResponse extends TripDepartureRequest {
+    id: number;
+    tripId: number;
+  }
+}
+
 export interface ApiFieldError {
   field: string;
   message: string;
