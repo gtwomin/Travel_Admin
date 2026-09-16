@@ -35,17 +35,17 @@ export const unpublishAdminPost = (postId: number): Promise<void> =>
   http.delete(`${ADMIN_SERVICE}/posts/${postId}`, undefined, { loading: false }).then(() => undefined);
 
 export const getAdminCategories = () => {
-  return http.getDirect<AdminForum.Category[]>(`${ADMIN_SERVICE}/category`, undefined, { loading: false });
+  return http.getDirect<AdminForum.Category[]>(`${ADMIN_SERVICE}/categories`, undefined, { loading: false });
 };
 
 export const createAdminCategory = (params: AdminForum.CategoryMutationParams) => {
-  return http.postDirect<AdminForum.Category>(`${ADMIN_SERVICE}/category`, params, { loading: false });
+  return http.postDirect<AdminForum.Category>(`${ADMIN_SERVICE}/categories`, params, { loading: false });
 };
 
 export const updateAdminCategory = (categoryId: number, params: AdminForum.CategoryMutationParams): Promise<void> => {
-  return http.put(`${ADMIN_SERVICE}/category/${categoryId}`, params, { loading: false }).then(() => undefined);
+  return http.put(`${ADMIN_SERVICE}/categories/${categoryId}`, params, { loading: false }).then(() => undefined);
 };
 
 export const deleteAdminCategory = (categoryId: number): Promise<void> => {
-  return http.delete(`${ADMIN_SERVICE}/category/${categoryId}`, undefined, { loading: false }).then(() => undefined);
+  return http.delete(`${ADMIN_SERVICE}/categories/${categoryId}`, undefined, { loading: false }).then(() => undefined);
 };
