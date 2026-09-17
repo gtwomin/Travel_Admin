@@ -59,7 +59,13 @@
                 placeholder="請輸入售價"
               />
             </el-form-item>
-            <el-form-item label="目的縣市" prop="destinations">
+            <el-form-item label="國家／地區">
+              <el-select v-model="selectedCountry" class="full-width" filterable clearable placeholder="全部國家／地區">
+                <el-option v-for="country in countryOptions" :key="country.value" :label="country.label" :value="country.value" />
+              </el-select>
+              <p class="form-hint">僅篩選可選城市；切換國家／地區會保留已選城市，可跨國選擇。</p>
+            </el-form-item>
+            <el-form-item label="目的城市" prop="destinations">
               <el-select
                 v-model="form.destinations"
                 class="full-width"
@@ -67,12 +73,17 @@
                 filterable
                 clearable
                 :loading="cityOptionsLoading"
-                placeholder="請選擇目的縣市"
+                placeholder="請選擇目的城市"
               >
-                <el-option v-for="option in cityOptions" :key="option.value" :label="option.label" :value="option.value" />
+                <el-option
+                  v-for="option in filteredCityOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
               </el-select>
-              <p v-if="cityOptionsError" class="form-hint form-hint-error">目的縣市選項載入失敗，請重新開啟或稍後再試。</p>
-              <p v-else-if="cityOptionsLoading" class="form-hint">正在載入目的縣市選項…</p>
+              <p v-if="cityOptionsError" class="form-hint form-hint-error">目的城市選項載入失敗，請重新開啟或稍後再試。</p>
+              <p v-else-if="cityOptionsLoading" class="form-hint">正在載入目的城市選項…</p>
             </el-form-item>
             <el-form-item label="預訂模式" prop="bookingMode">
               <el-select v-model="bookingModeModel" class="full-width" clearable placeholder="請選擇預訂模式">
@@ -224,6 +235,42 @@ const form = reactive<TripFormModel>(createDefaultForm());
 const cityOptions = ref<AdminTrip.CityOptionResponse[]>([]);
 const cityOptionsLoading = ref(false);
 const cityOptionsError = ref(false);
+// 國家／地區僅用於前端篩選，儲存時維持 destinations 的既有 API 契約。
+const countryOptions = [
+  { value: "TW", label: "台灣" },
+  { value: "JP", label: "日本" },
+  { value: "KR", label: "韓國" },
+  { value: "TH", label: "泰國" },
+  { value: "SG", label: "新加坡" },
+  { value: "MY", label: "馬來西亞" },
+  { value: "CN", label: "中國" },
+  { value: "HK", label: "香港" },
+  { value: "MO", label: "澳門" }
+] as const;
+type CountryCode = (typeof countryOptions)[number]["value"];
+const destinationCountries: Record<AdminTrip.TravelDestination, CountryCode> = {
+  TAIPEI: "TW",
+  KAOHSIUNG: "TW",
+  TOKYO: "JP",
+  OSAKA: "JP",
+  KYOTO: "JP",
+  HOKKAIDO: "JP",
+  SEOUL: "KR",
+  BUSAN: "KR",
+  BANGKOK: "TH",
+  CHIANG_MAI: "TH",
+  SINGAPORE: "SG",
+  KUALA_LUMPUR: "MY",
+  SHANGHAI: "CN",
+  HONG_KONG: "HK",
+  MACAU: "MO"
+};
+const selectedCountry = ref<CountryCode | "">("");
+const filteredCityOptions = computed(() =>
+  selectedCountry.value
+    ? cityOptions.value.filter(option => destinationCountries[option.value] === selectedCountry.value)
+    : cityOptions.value
+);
 let requestSequence = 0;
 
 const serializeForm = (value: TripFormModel) =>
@@ -276,7 +323,7 @@ const validateTripPrice = (_rule: unknown, value: unknown, callback: (error?: Er
 
 const validateDestinations = (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
   if (!Array.isArray(value) || value.length === 0) {
-    callback(new Error("至少選擇一個目的縣市"));
+    callback(new Error("至少選擇一個目的城市"));
     return;
   }
   callback();
@@ -299,6 +346,7 @@ const toTripPayload = (): AdminTrip.TripBaseRequest => ({
 });
 
 const resetForm = () => {
+  selectedCountry.value = "";
   Object.assign(form, createDefaultForm());
   savedFormSnapshot.value = serializeForm(form);
   formRef.value?.clearValidate();

@@ -21,7 +21,7 @@
         <el-descriptions-item label="摘要">
           <span class="long-text">{{ currentTrip.summary || "—" }}</span>
         </el-descriptions-item>
-        <el-descriptions-item label="目的縣市">
+        <el-descriptions-item label="目的城市">
           <span class="long-text">{{ formatDestinations(currentTrip.destinations) }}</span>
         </el-descriptions-item>
       </el-descriptions>
