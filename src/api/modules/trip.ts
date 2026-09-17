@@ -3,7 +3,7 @@ import { ADMIN_SERVICE } from "@/api/config/servicePort";
 import { AdminTrip } from "@/api/interface";
 
 const toTripPayload = (params: AdminTrip.TripBaseRequest) => {
-  const { tripName, summary, tripContent, tripPrice, destinations, bookingMode, productType } = params;
+  const { tripName, summary, tripContent, tripPrice, destinations, bookingMode, productType, departureCity } = params;
 
   return {
     tripName,
@@ -12,7 +12,8 @@ const toTripPayload = (params: AdminTrip.TripBaseRequest) => {
     tripPrice,
     destinations,
     bookingMode,
-    productType
+    productType,
+    departureCity
   };
 };
 
@@ -102,8 +103,15 @@ export const adaptAdminTripList = (
 export const getAdminTripList = () =>
   http.getDirect<AdminTrip.TripListResponse[]>(`${ADMIN_SERVICE}/trips`, undefined, { loading: false });
 
-export const getAdminTripDetail = (tripId: number) =>
-  http.getDirect<AdminTrip.TripDetailResponse>(`${ADMIN_SERVICE}/trips/${tripId}`, undefined, { loading: false });
+export const getAdminTripDetail = async (tripId: number): Promise<AdminTrip.TripDetailResponse> => {
+  // 相容目前後端 DTO 的 DepartureCity 命名與舊資料未回傳欄位的情況。
+  const detail = await http.getDirect<AdminTrip.TripDetailResponse & { DepartureCity?: AdminTrip.DepartureCity | null }>(
+    `${ADMIN_SERVICE}/trips/${tripId}`,
+    undefined,
+    { loading: false }
+  );
+  return { ...detail, departureCity: detail.departureCity ?? detail.DepartureCity ?? null };
+};
 
 export const createAdminTrip = (params: AdminTrip.TripCreateRequest) =>
   http.postDirect<AdminTrip.TripCreateResponse>(

@@ -217,6 +217,7 @@ export namespace AdminForum {
 
 // 行程管理模組
 export namespace AdminTrip {
+  export type DepartureCity = "高雄" | "台中" | "台北" | "桃園";
   export type TripStatus = "ACTIVE" | "INACTIVE";
   export type TravelDestination =
     | "TAIPEI"
@@ -248,12 +249,14 @@ export namespace AdminTrip {
   }
 
   export interface TripDetailResponse extends TripListResponse {
+    departureCity: DepartureCity | null;
     tripContent: string | null;
     bookingMode: TripBookingMode;
     productType: TripProductType;
   }
 
   export interface TripBaseRequest {
+    departureCity: DepartureCity | null;
     tripName: string;
     summary: string | null;
     tripContent: string | null;

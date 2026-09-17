@@ -38,6 +38,7 @@ import {
 import { AdminTrip } from "@/api/interface";
 
 const tripRequest: AdminTrip.TripBaseRequest = {
+  departureCity: "高雄",
   tripName: "北海道雪祭五日",
   summary: "冬季行程",
   tripContent: "行程介紹",
@@ -84,6 +85,18 @@ beforeEach(() => {
 });
 
 describe("行程管理 API 契約", () => {
+  it.each([
+    [{ departureCity: "桃園" }, "桃園"],
+    [{ DepartureCity: "台中" }, "台中"],
+    [{ departureCity: "台北", DepartureCity: "高雄" }, "台北"],
+    [{ departureCity: null }, null],
+    [{}, null]
+  ])("詳情正規化出發城市欄位 %j", async (response, expected) => {
+    api.getDirect.mockResolvedValueOnce(response);
+    const detail = await getAdminTripDetail(101);
+    expect(detail.departureCity).toBe(expected);
+  });
+
   it("列表、詳情與縣市選項不得送出不存在的查詢參數", async () => {
     await getAdminTripList();
     await getAdminTripDetail(101);

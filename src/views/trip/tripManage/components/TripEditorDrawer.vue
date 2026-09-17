@@ -59,6 +59,11 @@
                 placeholder="請輸入售價"
               />
             </el-form-item>
+            <el-form-item label="出發城市" prop="departureCity">
+              <el-select v-model="departureCityModel" class="full-width" placeholder="請選擇出發城市">
+                <el-option v-for="city in departureCityOptions" :key="city" :label="city" :value="city" />
+              </el-select>
+            </el-form-item>
             <el-form-item label="國家／地區">
               <el-select v-model="selectedCountry" class="full-width" filterable clearable placeholder="全部國家／地區">
                 <el-option v-for="country in countryOptions" :key="country.value" :label="country.label" :value="country.value" />
@@ -198,6 +203,7 @@ type EditorMode = "create" | "edit";
 type WizardStep = 0 | 1 | 2 | 3 | 4;
 
 interface TripFormModel {
+  departureCity: AdminTrip.DepartureCity | null;
   tripName: string;
   summary: string;
   tripPrice: number;
@@ -210,6 +216,7 @@ interface TripFormModel {
 const emit = defineEmits<{ saved: [] }>();
 
 const createDefaultForm = (): TripFormModel => ({
+  departureCity: null,
   tripName: "",
   summary: "",
   tripPrice: 0,
@@ -235,6 +242,7 @@ const form = reactive<TripFormModel>(createDefaultForm());
 const cityOptions = ref<AdminTrip.CityOptionResponse[]>([]);
 const cityOptionsLoading = ref(false);
 const cityOptionsError = ref(false);
+const departureCityOptions: AdminTrip.DepartureCity[] = ["高雄", "台中", "台北", "桃園"];
 // 國家／地區僅用於前端篩選，儲存時維持 destinations 的既有 API 契約。
 const countryOptions = [
   { value: "TW", label: "台灣" },
@@ -275,6 +283,7 @@ let requestSequence = 0;
 
 const serializeForm = (value: TripFormModel) =>
   JSON.stringify({
+    departureCity: value.departureCity,
     tripName: value.tripName,
     summary: value.summary,
     tripPrice: value.tripPrice,
@@ -292,6 +301,12 @@ const persistedTripId = computed(() => tripId.value ?? 0);
 const drawerTitle = computed(() => (mode.value === "create" ? "新增行程" : "編輯行程"));
 const statusLabel = computed(() => (status.value === "ACTIVE" ? "已上架" : status.value === "INACTIVE" ? "已下架" : "—"));
 const statusTagType = computed<"success" | "info">(() => (status.value === "ACTIVE" ? "success" : "info"));
+const departureCityModel = computed<AdminTrip.DepartureCity | undefined>({
+  get: () => form.departureCity ?? undefined,
+  set: value => {
+    form.departureCity = value ?? null;
+  }
+});
 const bookingModeModel = computed<AdminTrip.TripBookingMode | undefined>({
   get: () => form.bookingMode ?? undefined,
   set: value => {
@@ -336,6 +351,7 @@ const rules: FormRules = {
 };
 
 const toTripPayload = (): AdminTrip.TripBaseRequest => ({
+  departureCity: form.departureCity,
   tripName: form.tripName.trim(),
   summary: form.summary.trim() || null,
   tripContent: form.tripContent.trim() || null,
@@ -407,6 +423,7 @@ const loadEditDetail = async (id: number, requestId: number) => {
     if (requestId !== requestSequence) return;
 
     Object.assign(form, {
+      departureCity: detail.departureCity ?? null,
       tripName: detail.tripName ?? "",
       summary: detail.summary ?? "",
       tripPrice: detail.tripPrice,

@@ -21,6 +21,7 @@
         <el-descriptions-item label="摘要">
           <span class="long-text">{{ currentTrip.summary || "—" }}</span>
         </el-descriptions-item>
+        <el-descriptions-item label="出發城市">{{ currentTrip.departureCity || "未設定" }}</el-descriptions-item>
         <el-descriptions-item label="目的城市">
           <span class="long-text">{{ formatDestinations(currentTrip.destinations) }}</span>
         </el-descriptions-item>
@@ -49,7 +50,7 @@
 </template>
 
 <script setup lang="ts" name="TripDetailDrawer">
-import { ref, withDefaults } from "vue";
+import { ref } from "vue";
 
 import { AdminTrip } from "@/api/interface";
 import { getAdminTripDetail } from "@/api/modules/trip";
