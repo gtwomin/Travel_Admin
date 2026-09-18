@@ -8,7 +8,28 @@
       :search-col="{ xs: 1, sm: 2, md: 2, lg: 3, xl: 4 }"
     >
       <template #tableHeader>
-        <ElButton type="primary" :icon="CirclePlus" @click="openCreate">新增行程</ElButton>
+        <div class="trip-table-header">
+          <div class="trip-header-primary">
+            <ElButton type="primary" :icon="CirclePlus" @click="openCreate"> 新增行程 </ElButton>
+          </div>
+
+          <div class="status-filter-list">
+            <ElButton :type="quickStatus === '' ? 'primary' : 'default'" @click="applyStatusFilter('')">
+              全部行程
+              <strong>{{ allTripCount }}</strong>
+            </ElButton>
+
+            <ElButton :type="quickStatus === 'ACTIVE' ? 'success' : 'default'" @click="applyStatusFilter('ACTIVE')">
+              已上架
+              <strong>{{ activeTripCount }}</strong>
+            </ElButton>
+
+            <ElButton :type="quickStatus === 'INACTIVE' ? 'warning' : 'default'" @click="applyStatusFilter('INACTIVE')">
+              已下架
+              <strong>{{ inactiveTripCount }}</strong>
+            </ElButton>
+          </div>
+        </div>
       </template>
     </ProTable>
     <TripDetailDrawer ref="detailDrawerRef" :destination-labels="cityLabels" />
@@ -19,7 +40,7 @@
 <script setup lang="tsx" name="tripManage">
 import { CirclePlus, Download, EditPen, Upload, View } from "@element-plus/icons-vue";
 import { ElButton, ElImage, ElMessage, ElMessageBox, ElTag } from "element-plus";
-import { defineComponent, nextTick, onActivated, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { computed, defineComponent, nextTick, onActivated, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 
 import { AdminTrip } from "@/api/interface";
 import {
@@ -37,6 +58,16 @@ import TripDetailDrawer from "./components/TripDetailDrawer.vue";
 import TripEditorDrawer from "./components/TripEditorDrawer.vue";
 
 const cityLabels = ref<Record<string, string>>({});
+type StatusFilter = "" | AdminTrip.TripStatus;
+
+const allTrips = ref<AdminTrip.TripListResponse[]>([]);
+
+const quickStatus = ref<StatusFilter>("");
+const allTripCount = computed(() => allTrips.value.length);
+
+const activeTripCount = computed(() => allTrips.value.filter(trip => trip.status === "ACTIVE").length);
+
+const inactiveTripCount = computed(() => allTrips.value.filter(trip => trip.status === "INACTIVE").length);
 const proTable = ref<ProTableInstance>();
 const detailDrawerRef = ref<InstanceType<typeof TripDetailDrawer> | null>(null);
 const editorDrawerRef = ref<InstanceType<typeof TripEditorDrawer> | null>(null);
@@ -128,9 +159,24 @@ const formatDestination = (destination: AdminTrip.TravelDestination) => cityLabe
 
 const getTableList = async (params: AdminTripListViewParams) => {
   const trips = await getAdminTripList();
-  return { data: adaptAdminTripList(trips, params) };
-};
 
+  allTrips.value = trips;
+
+  return {
+    data: adaptAdminTripList(trips, params)
+  };
+};
+const applyStatusFilter = (status: StatusFilter) => {
+  quickStatus.value = status;
+
+  if (!proTable.value) {
+    return;
+  }
+
+  proTable.value.searchParam.status = status;
+
+  proTable.value.search();
+};
 const openDetail = (row: AdminTrip.TripListResponse) => {
   detailDrawerRef.value?.acceptParams(row.id);
 };
@@ -150,7 +196,11 @@ const searchTrips = async () => {
   await nextTick();
   proTable.value?.search();
 };
+const handleStatusChange = (value: unknown) => {
+  quickStatus.value = value === "ACTIVE" || value === "INACTIVE" ? value : "";
 
+  void searchTrips();
+};
 const searchOnEnter = (event: KeyboardEvent) => {
   if (event.key !== "Enter" || event.isComposing) return;
   event.preventDefault();
@@ -261,7 +311,11 @@ const columns = reactive<ColumnProps<AdminTrip.TripListResponse>[]>([
       el: "select",
       label: "狀態",
       defaultValue: "",
-      props: { placeholder: "全部行程", clearable: false, onChange: searchTrips }
+      props: {
+        placeholder: "全部行程",
+        clearable: false,
+        onChange: handleStatusChange
+      }
     },
     render: ({ row }) => <ElTag type={statusTagType(row.status)}>{statusLabel(row.status)}</ElTag>
   },
@@ -309,6 +363,47 @@ onActivated(() => {
 </script>
 
 <style scoped lang="scss">
+.trip-table-header {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  align-items: stretch;
+}
+.trip-header-primary {
+  display: flex;
+  justify-content: flex-start;
+}
+.status-filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.status-filter-list :deep(.el-button) {
+  margin-left: 0;
+}
+.status-filter-list strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 20px;
+  padding: 0 6px;
+  margin-left: 6px;
+  font-size: 12px;
+  background: rgb(255 255 255 / 20%);
+  border-radius: 999px;
+}
+
+@media (width <= 768px) {
+  .trip-table-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .trip-table-header > .el-button {
+    align-self: flex-start;
+  }
+}
 .trip-manage {
   min-width: 0;
 }
