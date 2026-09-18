@@ -159,11 +159,17 @@
           <h3>出發梯次</h3>
           <p>請先建立行程，才能新增出發梯次。</p>
         </section>
-        <section v-else class="placeholder-step" aria-labelledby="trip-editor-preview-title">
-          <el-tag type="info">後續階段開放</el-tag>
-          <h3 id="trip-editor-preview-title">預覽與上架</h3>
-          <p>行程預覽與上架流程將於後續階段開放。</p>
-        </section>
+        <TripPreviewSection
+          v-else-if="currentStep === 4 && isPersisted"
+          ref="previewSectionRef"
+          :trip-id="persistedTripId"
+          :trip-name="form.tripName"
+          :summary="form.summary"
+          :trip-price="form.tripPrice"
+          :destinations="form.destinations"
+          :booking-mode="form.bookingMode"
+          @busy-change="handlePreviewBusyChange"
+        />
       </div>
     </div>
 
@@ -189,8 +195,15 @@
             :disabled="submitting || photoBusy || dayBusy || departureBusy || (currentStep === 2 && dayDirty)"
             @click="nextStep"
           >
-            下一步
+            {{ currentStep === 2 && dayDirty ? "請先儲存每日行程" : "下一步" }}
           </el-button>
+          <template v-else-if="currentStep === 4">
+            <el-button :disabled="submitting || previewBusy" @click="changeTripStatus('INACTIVE')"> 儲存並下架 </el-button>
+
+            <el-button type="primary" :loading="submitting" :disabled="previewBusy" @click="changeTripStatus('ACTIVE')">
+              正式上架
+            </el-button>
+          </template>
         </div>
       </div>
     </template>
@@ -202,11 +215,18 @@ import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from "elem
 import { computed, reactive, ref } from "vue";
 
 import { AdminTrip } from "@/api/interface";
-import { createAdminTrip, getAdminTripCities, getAdminTripDetail, updateAdminTrip } from "@/api/modules/trip";
+import {
+  createAdminTrip,
+  getAdminTripCities,
+  getAdminTripDetail,
+  updateAdminTrip,
+  updateAdminTripStatus
+} from "@/api/modules/trip";
 
 import TripDaySection from "./TripDaySection.vue";
 import TripPhotoSection from "./TripPhotoSection.vue";
 import TripDepartureSection from "./TripDepartureSection.vue";
+import TripPreviewSection from "./TripPreviewSection.vue";
 
 type EditorMode = "create" | "edit";
 type WizardStep = 0 | 1 | 2 | 3 | 4;
@@ -238,6 +258,10 @@ const createDefaultForm = (): TripFormModel => ({
 const drawerVisible = ref(false);
 const mode = ref<EditorMode>("create");
 const departureBusy = ref(false);
+const previewBusy = ref(false);
+const previewSectionRef = ref<{
+  validateForPublish: () => boolean;
+} | null>(null);
 const tripId = ref<number | null>(null);
 const currentStep = ref<WizardStep>(0);
 const status = ref<AdminTrip.TripStatus | null>(null);
@@ -399,7 +423,9 @@ const handleDepartureBusyChange = (busy: boolean) => {
 const handleDepartureChanged = () => {
   emit("saved");
 };
-
+const handlePreviewBusyChange = (busy: boolean) => {
+  previewBusy.value = busy;
+};
 const handlePhotoBusyChange = (busy: boolean) => {
   photoBusy.value = busy;
 };
@@ -541,7 +567,34 @@ const nextStep = () => {
   }
   currentStep.value = (currentStep.value + 1) as WizardStep;
 };
+const changeTripStatus = async (nextStatus: AdminTrip.TripStatus) => {
+  if (tripId.value === null || submitting.value || previewBusy.value) {
+    return;
+  }
 
+  if (nextStatus === "ACTIVE" && !previewSectionRef.value?.validateForPublish()) {
+    ElMessage.warning("請先完成所有必要資料再上架");
+
+    return;
+  }
+
+  submitting.value = true;
+
+  try {
+    await updateAdminTripStatus(tripId.value, {
+      status: nextStatus
+    });
+
+    status.value = nextStatus;
+    emit("saved");
+
+    ElMessage.success(nextStatus === "ACTIVE" ? "行程已成功上架" : "行程已儲存至下架區");
+
+    drawerVisible.value = false;
+  } finally {
+    submitting.value = false;
+  }
+};
 const confirmCloseIfDirty = async () => {
   if (!hasPendingChanges.value) return true;
 

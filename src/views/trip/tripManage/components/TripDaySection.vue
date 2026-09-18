@@ -243,7 +243,7 @@ const isDayDirty = (day: EditableTripDay) => {
   const snapshot = persistedSnapshots.get(day.key);
   return snapshot ? serializeDay(day) !== serializeDay(snapshot) : true;
 };
-const hasUnsavedChanges = computed(() => days.value.some(day => isDayDirty(day)) || Object.keys(dayPhotos.value).length > 0);
+const hasUnsavedChanges = computed(() => days.value.some(day => isDayDirty(day)));
 
 const optionalText = (value: string) => value.trim() || null;
 
