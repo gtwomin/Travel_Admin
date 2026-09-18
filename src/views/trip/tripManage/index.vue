@@ -19,7 +19,7 @@
 <script setup lang="tsx" name="tripManage">
 import { CirclePlus, Download, EditPen, Upload, View } from "@element-plus/icons-vue";
 import { ElButton, ElImage, ElMessage, ElMessageBox, ElTag } from "element-plus";
-import { defineComponent, onActivated, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { defineComponent, nextTick, onActivated, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 
 import { AdminTrip } from "@/api/interface";
 import {
@@ -145,6 +145,18 @@ const openEdit = (tripId: number) => {
 
 const refreshTable = () => proTable.value?.getTableList() ?? Promise.resolve();
 
+// 等待搜尋元件更新 v-model，再沿用 ProTable 搜尋流程並回到第一頁。
+const searchTrips = async () => {
+  await nextTick();
+  proTable.value?.search();
+};
+
+const searchOnEnter = (event: KeyboardEvent) => {
+  if (event.key !== "Enter" || event.isComposing) return;
+  event.preventDefault();
+  void searchTrips();
+};
+
 const toggleStatus = async (row: AdminTrip.TripListResponse) => {
   if (statusLoadingId.value !== null) return;
 
@@ -193,7 +205,16 @@ const columns = reactive<ColumnProps<AdminTrip.TripListResponse>[]>([
     label: "行程名稱 / 摘要",
     minWidth: 280,
     showOverflowTooltip: false,
-    search: { el: "input", key: "keyword", label: "行程關鍵字", props: { placeholder: "名稱或摘要" } },
+    search: {
+      el: "input",
+      key: "keyword",
+      label: "行程關鍵字",
+      props: {
+        placeholder: "輸入行程名稱或摘要，按 Enter 搜尋",
+        onKeydown: searchOnEnter,
+        onClear: searchTrips
+      }
+    },
     render: ({ row }) => (
       <div class="trip-title-cell">
         <div class="trip-name" title={row.tripName}>
@@ -205,7 +226,7 @@ const columns = reactive<ColumnProps<AdminTrip.TripListResponse>[]>([
   },
   {
     prop: "destinations",
-    label: "目的縣市",
+    label: "目的城市",
     minWidth: 190,
     showOverflowTooltip: false,
     render: ({ row }) => (
@@ -231,8 +252,17 @@ const columns = reactive<ColumnProps<AdminTrip.TripListResponse>[]>([
     prop: "status",
     label: "狀態",
     width: 110,
-    enum: statusOptions,
-    search: { el: "select", label: "狀態", props: { placeholder: "全部" } },
+    enum: [
+      { label: "全部行程", value: "" },
+      { label: "已下架行程", value: "INACTIVE" },
+      { label: "已上架行程", value: "ACTIVE" }
+    ],
+    search: {
+      el: "select",
+      label: "狀態",
+      defaultValue: "",
+      props: { placeholder: "全部行程", clearable: false, onChange: searchTrips }
+    },
     render: ({ row }) => <ElTag type={statusTagType(row.status)}>{statusLabel(row.status)}</ElTag>
   },
   {

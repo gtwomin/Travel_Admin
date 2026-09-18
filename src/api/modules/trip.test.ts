@@ -36,6 +36,7 @@ import {
   uploadAdminTripPhoto
 } from "@/api/modules/trip";
 import { AdminTrip } from "@/api/interface";
+import { useTable } from "@/hooks/useTable";
 
 const tripRequest: AdminTrip.TripBaseRequest = {
   departureCity: "高雄",
@@ -193,6 +194,58 @@ describe("行程列表前端 adapter", () => {
 
   it("回傳符合 ProTable 的分頁結果", () => {
     expect(adaptAdminTripList(trips, { pageNum: 2, pageSize: 2 })).toEqual({ list: [trips[2]], total: 3 });
+  });
+
+  it.each([
+    ["", [1, 2, 3]],
+    ["INACTIVE", [2, 3]],
+    ["ACTIVE", [1]]
+  ])("狀態 %s 回傳對應行程", (status, ids) => {
+    const result = adaptAdminTripList(trips, { status });
+    expect(result.list.map(trip => trip.id)).toEqual(ids);
+    expect(result.total).toBe(ids.length);
+  });
+
+  it("關鍵字可比對摘要、忽略前後空白，且與狀態共同篩選", () => {
+    expect(adaptAdminTripList(trips, { keyword: "  深度  ", status: "INACTIVE" }).list).toEqual([trips[2]]);
+    expect(adaptAdminTripList(trips, { keyword: "北海道", status: "ACTIVE" })).toEqual({ list: [], total: 0 });
+    expect(adaptAdminTripList(trips, { keyword: "  ", status: "" }).total).toBe(3);
+  });
+
+  it("英文關鍵字不區分大小寫，空摘要仍可搜尋名稱", () => {
+    const englishTrip = { ...trips[0], tripName: "Tokyo City Tour", summary: null };
+    expect(adaptAdminTripList([englishTrip], { keyword: "TOKYO" }).list).toEqual([englishTrip]);
+  });
+
+  it("ProTable 搜尋會回到第一頁，切換全部及重置會清除舊條件", async () => {
+    const request = vi.fn(async params => ({ data: adaptAdminTripList(trips, params) }));
+    const table = useTable(request);
+    table.searchInitParam.value = { status: "" };
+    table.pageable.value.pageNum = 3;
+    table.searchParam.value = { status: "INACTIVE", keyword: "北海道" };
+    table.search();
+    await Promise.resolve();
+    expect(table.pageable.value.pageNum).toBe(1);
+    expect(table.tableData.value.map(trip => trip.id)).toEqual([2, 3]);
+
+    table.searchParam.value.status = "ACTIVE";
+    table.search();
+    await Promise.resolve();
+    expect(table.tableData.value).toEqual([]);
+
+    table.searchParam.value.status = "";
+    table.searchParam.value.keyword = "";
+    table.search();
+    await Promise.resolve();
+    expect(table.tableData.value).toEqual(trips);
+
+    table.searchParam.value = { status: "ACTIVE", keyword: "台北" };
+    table.search();
+    await Promise.resolve();
+    table.reset();
+    await Promise.resolve();
+    expect(table.searchParam.value).toEqual({ status: "" });
+    expect(table.tableData.value).toEqual(trips);
   });
 
   it("不使用目的縣市作為關鍵字搜尋欄位", () => {

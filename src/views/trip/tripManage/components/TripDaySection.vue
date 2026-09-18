@@ -3,10 +3,18 @@
     <div class="day-section-header">
       <div>
         <h3 id="trip-editor-day-title">每日行程</h3>
-        <p class="day-section-description">依天數編排每日路線、餐食、住宿與交通資訊；儲存後會立即從伺服器重新載入。</p>
+        <p class="day-section-description">點選每日標題展開詳細資料，依天數編排路線、餐食、住宿與交通資訊。</p>
       </div>
       <div class="day-section-actions">
-        <el-button text :icon="Refresh" :loading="loading" :disabled="isBusy || loadError" @click="loadDays">重新整理</el-button>
+        <el-button
+          text
+          :icon="Refresh"
+          :loading="loading"
+          :disabled="isBusy || loadError || hasUnsavedChanges"
+          @click="loadDays()"
+        >
+          重新整理
+        </el-button>
         <el-button type="primary" :icon="Plus" :disabled="isBusy || loadError" @click="addDay">新增一天</el-button>
       </div>
     </div>
@@ -14,38 +22,80 @@
     <div v-if="loading && days.length === 0" class="day-state" role="status">正在載入每日行程…</div>
     <div v-else-if="loadError" class="day-state day-state-error" role="alert">
       <p>每日行程載入失敗，請稍後再試。</p>
-      <el-button type="primary" plain :disabled="isBusy" @click="loadDays">重新載入</el-button>
+      <el-button type="primary" plain :disabled="isBusy" @click="loadDays(true)">重新載入</el-button>
     </div>
     <el-empty v-else-if="days.length === 0" description="尚未建立每日行程">
       <el-button type="primary" :disabled="isBusy" @click="addDay">新增第一天</el-button>
     </el-empty>
 
-    <div v-else class="day-list">
-      <article v-for="day in days" :key="day.key" class="day-card" :class="{ 'is-dirty': isDayDirty(day) }">
-        <div class="day-card-header">
+    <el-collapse v-else v-model="expandedDays" class="day-list">
+      <el-collapse-item
+        v-for="day in days"
+        :key="day.key"
+        :name="day.key"
+        class="day-card"
+        :class="{ 'is-dirty': isDayDirty(day) }"
+      >
+        <template #title>
           <div class="day-heading">
+            <img
+              v-if="dayPhotos[day.key]"
+              class="day-thumbnail"
+              :src="dayPhotos[day.key].url"
+              :alt="`第 ${day.dayNumber} 天照片`"
+            />
+            <span v-else class="day-thumbnail day-thumbnail-empty" aria-hidden="true">
+              <el-icon><Picture /></el-icon>
+            </span>
             <span class="day-number-label">DAY {{ day.dayNumber }}</span>
-            <div>
-              <h4>{{ day.title || "尚未命名" }}</h4>
-              <p>{{ day.id === null ? "尚未儲存" : `每日行程 ID：${day.id}` }}</p>
-            </div>
+            <span class="day-title">{{ day.title || "尚未命名" }}</span>
           </div>
-          <div class="day-card-header-actions">
-            <el-tag v-if="isDayDirty(day)" type="warning" size="small">尚未儲存</el-tag>
-            <el-button text type="danger" :disabled="isBusy" :loading="deletingKey === day.key" @click="deleteDay(day)">
-              刪除一天
-            </el-button>
-          </div>
+        </template>
+
+        <div class="day-card-header-actions">
+          <el-tag v-if="isDayDirty(day)" type="warning" size="small">尚未儲存</el-tag>
+          <el-button text type="danger" :disabled="isBusy" :loading="deletingKey === day.key" @click="deleteDay(day)">
+            刪除一天
+          </el-button>
         </div>
 
         <el-form
           :ref="instance => setDayFormRef(day.key, instance)"
           class="day-form"
           :model="day"
+          :disabled="isBusy"
           :rules="dayRules"
           label-position="top"
           @submit.prevent
         >
+          <el-form-item label="當日照片（最多一張）">
+            <div class="day-photo-editor">
+              <UploadImg
+                :key="dayPhotos[day.key]?.url || day.key"
+                :image-url="dayPhotos[day.key]?.url || ''"
+                defer-upload
+                :file-size="5"
+                :file-type="['image/jpeg', 'image/png', 'image/webp']"
+                width="100%"
+                height="200px"
+                @update:file="file => setDayPhoto(day.key, file)"
+              >
+                <template #empty>
+                  <el-icon><Plus /></el-icon>
+                  <span>選擇當日照片</span>
+                </template>
+                <template #tip>JPG、PNG、WebP，每張最多 5 MB；重新選擇會取代原照片。</template>
+              </UploadImg>
+              <el-button v-if="dayPhotos[day.key]" :disabled="isBusy" @click="clearDayPhoto(day.key)"> 移除照片預覽 </el-button>
+              <el-alert
+                title="目前僅供預覽，照片尚未儲存"
+                description="每日照片與行程相簿分開。照片儲存功能尚未開放，儲存這一天只會儲存文字資料；離開此步驟前請移除預覽，關閉編輯器後需重新選取。"
+                type="warning"
+                :closable="false"
+                show-icon
+              />
+            </div>
+          </el-form-item>
           <div class="day-form-grid day-form-grid-primary">
             <el-form-item label="第幾天" prop="dayNumber">
               <el-input-number
@@ -116,10 +166,10 @@
         </el-form>
 
         <div class="day-card-footer">
-          <el-button v-if="isDayDirty(day)" text @click="discardChanges(day)">
+          <el-button v-if="isDayDirty(day)" text :disabled="isBusy" @click="discardChanges(day)">
             {{ day.id === null ? "取消新增" : "還原變更" }}
           </el-button>
-          <span v-else class="day-save-hint">資料已與伺服器同步</span>
+          <span v-else class="day-save-hint">文字資料已與伺服器同步</span>
           <el-button
             type="primary"
             :loading="savingKey === day.key"
@@ -129,17 +179,18 @@
             {{ day.id === null ? "儲存這一天" : "儲存變更" }}
           </el-button>
         </div>
-      </article>
-    </div>
+      </el-collapse-item>
+    </el-collapse>
   </section>
 </template>
 
 <script setup lang="ts" name="TripDaySection">
-import { Plus, Refresh } from "@element-plus/icons-vue";
+import { Picture, Plus, Refresh } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from "element-plus";
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 
 import { AdminTrip } from "@/api/interface";
+import UploadImg from "@/components/Upload/Img.vue";
 import { createAdminTripDay, deleteAdminTripDay, getAdminTripDays, updateAdminTripDay } from "@/api/modules/trip";
 
 interface EditableTripDay {
@@ -166,12 +217,23 @@ const emit = defineEmits<{
 }>();
 
 const days = ref<EditableTripDay[]>([]);
+const expandedDays = ref<string[]>([]);
+const dayPhotos = ref<Record<string, { file: File; url: string }>>({});
+const clearDayPhoto = (key: string) => {
+  const photo = dayPhotos.value[key];
+  if (photo) URL.revokeObjectURL(photo.url);
+  delete dayPhotos.value[key];
+};
+const setDayPhoto = (key: string, file: File | null) => {
+  clearDayPhoto(key);
+  if (file) dayPhotos.value[key] = { file, url: URL.createObjectURL(file) };
+};
 const loading = ref(false);
 const loadError = ref(false);
 const savingKey = ref<string | null>(null);
 const deletingKey = ref<string | null>(null);
 const dayFormRefs = new Map<string, FormInstance>();
-const persistedSnapshots = new Map<string, EditableTripDay>();
+const persistedSnapshots = reactive(new Map<string, EditableTripDay>());
 let requestSequence = 0;
 let newDaySequence = 0;
 let disposed = false;
@@ -181,7 +243,7 @@ const isDayDirty = (day: EditableTripDay) => {
   const snapshot = persistedSnapshots.get(day.key);
   return snapshot ? serializeDay(day) !== serializeDay(snapshot) : true;
 };
-const hasUnsavedChanges = computed(() => days.value.some(day => isDayDirty(day)));
+const hasUnsavedChanges = computed(() => days.value.some(day => isDayDirty(day)) || Object.keys(dayPhotos.value).length > 0);
 
 const optionalText = (value: string) => value.trim() || null;
 
@@ -262,7 +324,7 @@ const saveSnapshots = (nextDays: EditableTripDay[]) => {
   nextDays.forEach(day => persistedSnapshots.set(day.key, cloneDay(day)));
 };
 
-const loadDays = async () => {
+const loadDays = async (preserveDrafts = false) => {
   if (disposed) return false;
 
   const sequence = ++requestSequence;
@@ -275,8 +337,19 @@ const loadDays = async () => {
     const nextDays = (Array.isArray(response) ? response : [])
       .map(toEditableDay)
       .sort((left, right) => left.dayNumber - right.dayNumber || (left.id ?? 0) - (right.id ?? 0));
-    days.value = nextDays;
+    const drafts = preserveDrafts ? days.value.filter(isDayDirty) : [];
+    const draftSnapshots = new Map(drafts.map(day => [day.key, persistedSnapshots.get(day.key)]));
     saveSnapshots(nextDays);
+    for (const draft of drafts) {
+      const index = nextDays.findIndex(day => day.key === draft.key);
+      if (index >= 0) nextDays[index] = draft;
+      else nextDays.push(draft);
+      const snapshot = draftSnapshots.get(draft.key);
+      if (snapshot) persistedSnapshots.set(draft.key, snapshot);
+      else persistedSnapshots.delete(draft.key);
+    }
+    days.value = nextDays.sort((left, right) => left.dayNumber - right.dayNumber);
+    expandedDays.value = expandedDays.value.filter(key => nextDays.some(day => day.key === key));
     return true;
   } catch {
     if (!disposed && sequence === requestSequence) loadError.value = true;
@@ -291,6 +364,7 @@ const addDay = () => {
 
   const nextDayNumber = days.value.reduce((maximum, day) => Math.max(maximum, day.dayNumber), 0) + 1;
   newDaySequence += 1;
+  expandedDays.value.push(`new-${newDaySequence}`);
   days.value.push({
     key: `new-${newDaySequence}`,
     id: null,
@@ -309,7 +383,7 @@ const addDay = () => {
 };
 
 const refreshAfterMutation = async (successMessage: string) => {
-  const refreshed = await loadDays();
+  const refreshed = await loadDays(true);
   if (refreshed) {
     ElMessage.success(successMessage);
   } else {
@@ -329,10 +403,20 @@ const saveDay = async (day: EditableTripDay) => {
   try {
     const payload = toDayPayload(day);
     if (day.id === null) {
-      await createAdminTripDay(props.tripId, payload);
+      const saved = await createAdminTripDay(props.tripId, payload);
+      const oldKey = day.key;
+      day.id = saved.id;
+      day.key = `day-${saved.id}`;
+      if (dayPhotos.value[oldKey]) {
+        dayPhotos.value[day.key] = dayPhotos.value[oldKey];
+        delete dayPhotos.value[oldKey];
+      }
+      expandedDays.value = expandedDays.value.map(key => (key === oldKey ? day.key : key));
+      persistedSnapshots.set(day.key, cloneDay(day));
       await refreshAfterMutation("每日行程新增成功");
     } else {
       await updateAdminTripDay(props.tripId, day.id, payload);
+      persistedSnapshots.set(day.key, cloneDay(day));
       await refreshAfterMutation("每日行程更新成功");
     }
   } catch {
@@ -360,6 +444,8 @@ const deleteDay = async (day: EditableTripDay) => {
   if (isDraft) {
     days.value = days.value.filter(item => item.key !== day.key);
     persistedSnapshots.delete(day.key);
+    clearDayPhoto(day.key);
+    expandedDays.value = expandedDays.value.filter(key => key !== day.key);
     ElMessage.success("每日行程草稿已移除");
     return;
   }
@@ -367,6 +453,10 @@ const deleteDay = async (day: EditableTripDay) => {
   deletingKey.value = day.key;
   try {
     await deleteAdminTripDay(props.tripId, dayId);
+    days.value = days.value.filter(item => item.key !== day.key);
+    persistedSnapshots.delete(day.key);
+    clearDayPhoto(day.key);
+    expandedDays.value = expandedDays.value.filter(key => key !== day.key);
     await refreshAfterMutation("每日行程已刪除");
   } catch {
     // API 錯誤訊息由全域攔截器處理，保留目前清單讓使用者重試。
@@ -379,11 +469,14 @@ const discardChanges = (day: EditableTripDay) => {
   if (day.id === null) {
     days.value = days.value.filter(item => item.key !== day.key);
     persistedSnapshots.delete(day.key);
+    clearDayPhoto(day.key);
+    expandedDays.value = expandedDays.value.filter(key => key !== day.key);
     return;
   }
 
   const snapshot = persistedSnapshots.get(day.key);
   if (!snapshot) return;
+  clearDayPhoto(day.key);
   Object.assign(day, cloneDay(snapshot));
   dayFormRefs.get(day.key)?.clearValidate();
 };
@@ -394,12 +487,15 @@ watch(hasUnsavedChanges, dirty => emit("dirtyChange", dirty), { immediate: true 
 watch(
   () => props.tripId,
   () => {
+    expandedDays.value = [];
+    Object.keys(dayPhotos.value).forEach(clearDayPhoto);
     void loadDays();
   },
   { immediate: true }
 );
 
 onBeforeUnmount(() => {
+  Object.keys(dayPhotos.value).forEach(clearDayPhoto);
   disposed = true;
   requestSequence += 1;
   dayFormRefs.clear();
@@ -457,29 +553,66 @@ onBeforeUnmount(() => {
 }
 .day-list {
   display: grid;
-  gap: 20px;
+  gap: 16px;
   margin-top: 24px;
+  border: none;
 }
 .day-card {
-  padding: 20px;
+  overflow: hidden;
   background: var(--el-bg-color);
   border: 1px solid var(--el-border-color-light);
-  border-radius: var(--el-border-radius-base);
-  box-shadow: var(--el-box-shadow-lighter);
+  border-radius: 10px;
 }
 .day-card.is-dirty {
   border-color: var(--el-color-warning-light-5);
 }
-.day-card-header {
-  gap: 16px;
-  justify-content: space-between;
-  padding-bottom: 16px;
-  margin-bottom: 20px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
+.day-card :deep(.el-collapse-item__header) {
+  height: auto;
+  min-height: 88px;
+  padding: 16px 20px;
+  line-height: 1.5;
+  background: var(--el-fill-color-extra-light);
+  border-bottom: none;
+}
+.day-card :deep(.el-collapse-item__wrap) {
+  border-bottom: none;
+}
+.day-card :deep(.el-collapse-item__content) {
+  padding: 0 20px 20px;
 }
 .day-heading {
+  display: flex;
+  flex: 1;
   gap: 14px;
   min-width: 0;
+  padding-right: 12px;
+  text-align: left;
+}
+.day-title {
+  flex: 1;
+  font-size: var(--el-font-size-medium);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.day-thumbnail {
+  flex-shrink: 0;
+  width: 112px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.day-thumbnail-empty {
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  color: var(--el-text-color-placeholder);
+  background: var(--el-fill-color);
+}
+.day-photo-editor {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  max-width: 560px;
 }
 .day-number-label {
   display: inline-flex;
@@ -495,22 +628,10 @@ onBeforeUnmount(() => {
   background: var(--el-color-primary-light-9);
   border-radius: var(--el-border-radius-base);
 }
-.day-heading h4 {
-  margin: 0 0 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: var(--el-font-size-medium);
-  color: var(--el-text-color-primary);
-  white-space: nowrap;
-}
-.day-heading p {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-  color: var(--el-text-color-secondary);
-}
 .day-card-header-actions {
-  flex-shrink: 0;
   gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 0;
 }
 .day-form {
   min-width: 0;
@@ -541,6 +662,17 @@ onBeforeUnmount(() => {
 }
 
 @media (width <= 768px) {
+  .day-thumbnail {
+    width: 72px;
+    height: 56px;
+  }
+  .day-heading {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .day-title {
+    min-width: 120px;
+  }
   .day-section-header,
   .day-card-header {
     flex-direction: column;
@@ -555,8 +687,11 @@ onBeforeUnmount(() => {
   .day-form-grid-fee {
     grid-template-columns: minmax(0, 1fr);
   }
-  .day-card {
-    padding: 16px;
+  .day-card :deep(.el-collapse-item__header) {
+    padding: 12px;
+  }
+  .day-card :deep(.el-collapse-item__content) {
+    padding: 0 12px 16px;
   }
 }
 </style>
