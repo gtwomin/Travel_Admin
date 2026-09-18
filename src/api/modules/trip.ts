@@ -127,7 +127,12 @@ export const updateAdminTripStatus = (tripId: number, params: AdminTrip.TripStat
   http
     .patchDirect<void>(`${ADMIN_SERVICE}/trips/${tripId}/status`, { status: params.status }, { loading: false })
     .then(() => undefined);
-
+export const deleteAdminTrip = (tripId: number): Promise<void> =>
+  http
+    .delete(`${ADMIN_SERVICE}/trips/${tripId}`, undefined, {
+      loading: false
+    })
+    .then(() => undefined);
 export const getAdminTripCities = () =>
   http.getDirect<AdminTrip.CityOptionResponse[]>(`${ADMIN_SERVICE}/trips/cities`, undefined, { loading: false });
 

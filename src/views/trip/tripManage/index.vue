@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="tsx" name="tripManage">
-import { CirclePlus, Download, EditPen, Upload, View } from "@element-plus/icons-vue";
+import { CirclePlus, Delete, Download, EditPen, Upload, View } from "@element-plus/icons-vue";
 import { ElButton, ElImage, ElMessage, ElMessageBox, ElTag } from "element-plus";
 import { computed, defineComponent, nextTick, onActivated, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 
@@ -46,6 +46,7 @@ import { AdminTrip } from "@/api/interface";
 import {
   adaptAdminTripList,
   AdminTripListViewParams,
+  deleteAdminTrip,
   getAdminTripCities,
   getAdminTripCoverPhoto,
   getAdminTripList,
@@ -229,7 +230,39 @@ const toggleStatus = async (row: AdminTrip.TripListResponse) => {
     statusLoadingId.value = null;
   }
 };
+const deleteTrip = async (row: AdminTrip.TripListResponse) => {
+  if (statusLoadingId.value !== null) {
+    return;
+  }
 
+  if (row.status === "ACTIVE") {
+    ElMessage.warning("已上架行程不能永久刪除，請先下架");
+
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(`確定要永久刪除「${row.tripName}」嗎？刪除後將無法復原。`, "永久刪除行程", {
+      type: "error",
+      confirmButtonText: "確定刪除",
+      cancelButtonText: "取消",
+      distinguishCancelAndClose: true
+    });
+
+    statusLoadingId.value = row.id;
+
+    await deleteAdminTrip(row.id);
+
+    ElMessage.success("行程已永久刪除");
+
+    await proTable.value?.getTableList();
+  } catch {
+    // 使用者取消時不處理；
+    // 後端拒絕刪除時，由全域攔截器顯示錯誤。
+  } finally {
+    statusLoadingId.value = null;
+  }
+};
 const loadCityLabels = async () => {
   if (Object.keys(cityLabels.value).length) return;
 
@@ -323,7 +356,7 @@ const columns = reactive<ColumnProps<AdminTrip.TripListResponse>[]>([
     prop: "operation",
     label: "操作",
     fixed: "right",
-    width: 270,
+    width: 340,
     render: ({ row }) => (
       <>
         <ElButton type="primary" link icon={View} disabled={statusLoadingId.value !== null} onClick={() => openDetail(row)}>
@@ -341,6 +374,16 @@ const columns = reactive<ColumnProps<AdminTrip.TripListResponse>[]>([
           onClick={() => void toggleStatus(row)}
         >
           {row.status === "ACTIVE" ? "下架" : "上架"}
+        </ElButton>
+        <ElButton
+          type="danger"
+          link
+          icon={Delete}
+          loading={statusLoadingId.value === row.id}
+          disabled={statusLoadingId.value !== null}
+          onClick={() => void deleteTrip(row)}
+        >
+          刪除
         </ElButton>
       </>
     )
