@@ -146,10 +146,18 @@
           <h3 id="trip-editor-day-title">每日行程</h3>
           <p>每日行程與景點編排將於後續階段開放。</p>
         </section>
-        <section v-else-if="currentStep === 3" class="placeholder-step" aria-labelledby="trip-editor-departure-title">
-          <el-tag type="info">後續階段開放</el-tag>
-          <h3 id="trip-editor-departure-title">出發梯次</h3>
-          <p>出發梯次管理將於後續階段開放。</p>
+        <TripDepartureSection
+          v-else-if="currentStep === 3 && isPersisted"
+          :trip-id="persistedTripId"
+          :booking-mode="form.bookingMode"
+          @busy-change="handleDepartureBusyChange"
+          @changed="handleDepartureChanged"
+        />
+
+        <section v-else-if="currentStep === 3" class="placeholder-step">
+          <el-tag type="info">尚未建立行程</el-tag>
+          <h3>出發梯次</h3>
+          <p>請先建立行程，才能新增出發梯次。</p>
         </section>
         <section v-else class="placeholder-step" aria-labelledby="trip-editor-preview-title">
           <el-tag type="info">後續階段開放</el-tag>
@@ -161,13 +169,13 @@
 
     <template #footer>
       <div class="trip-editor-footer">
-        <el-button :disabled="loading || submitting || photoBusy || dayBusy" @click="requestClose">{{
+        <el-button :disabled="loading || submitting || photoBusy || dayBusy || departureBusy" @click="requestClose">{{
           isPersisted ? "關閉" : "取消 / 關閉"
         }}</el-button>
         <div v-if="!loading && !loadError" class="trip-editor-footer-actions">
           <el-button
             v-if="currentStep > 0"
-            :disabled="submitting || photoBusy || dayBusy || (currentStep === 2 && dayDirty)"
+            :disabled="submitting || photoBusy || dayBusy || departureBusy || (currentStep === 2 && dayDirty)"
             @click="previousStep"
           >
             上一步
@@ -178,7 +186,7 @@
           <el-button
             v-else-if="currentStep < 4"
             type="primary"
-            :disabled="submitting || photoBusy || dayBusy || (currentStep === 2 && dayDirty)"
+            :disabled="submitting || photoBusy || dayBusy || departureBusy || (currentStep === 2 && dayDirty)"
             @click="nextStep"
           >
             下一步
@@ -198,6 +206,7 @@ import { createAdminTrip, getAdminTripCities, getAdminTripDetail, updateAdminTri
 
 import TripDaySection from "./TripDaySection.vue";
 import TripPhotoSection from "./TripPhotoSection.vue";
+import TripDepartureSection from "./TripDepartureSection.vue";
 
 type EditorMode = "create" | "edit";
 type WizardStep = 0 | 1 | 2 | 3 | 4;
@@ -228,6 +237,7 @@ const createDefaultForm = (): TripFormModel => ({
 
 const drawerVisible = ref(false);
 const mode = ref<EditorMode>("create");
+const departureBusy = ref(false);
 const tripId = ref<number | null>(null);
 const currentStep = ref<WizardStep>(0);
 const status = ref<AdminTrip.TripStatus | null>(null);
@@ -381,6 +391,13 @@ const resetEditorState = () => {
   dayBusy.value = false;
   dayDirty.value = false;
   resetForm();
+};
+const handleDepartureBusyChange = (busy: boolean) => {
+  departureBusy.value = busy;
+};
+
+const handleDepartureChanged = () => {
+  emit("saved");
 };
 
 const handlePhotoBusyChange = (busy: boolean) => {
