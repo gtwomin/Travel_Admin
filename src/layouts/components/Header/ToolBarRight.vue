@@ -5,7 +5,7 @@
       <Language id="language" />
       <SearchMenu id="searchMenu" />
       <ThemeSetting id="themeSetting" />
-      <Message id="message" />
+      <!-- <Message id="message" /> -->
       <Fullscreen id="fullscreen" />
     </div>
     <span class="username">{{ username }}</span>
@@ -22,7 +22,6 @@ import AssemblySize from "./components/AssemblySize.vue";
 import Avatar from "./components/Avatar.vue";
 import Fullscreen from "./components/Fullscreen.vue";
 import Language from "./components/Language.vue";
-import Message from "./components/Message.vue";
 import SearchMenu from "./components/SearchMenu.vue";
 import ThemeSetting from "./components/ThemeSetting.vue";
 

@@ -130,6 +130,120 @@ export namespace AdminUser {
   }
 }
 
+// 訂單管理模組
+export namespace AdminOrder {
+  export type AdminOrderBusinessStatus =
+    | "PENDING_PAYMENT"
+    | "UPCOMING"
+    | "IN_PROGRESS"
+    | "COMPLETED"
+    | "CANCELLED"
+    | "EXPIRED"
+    | "PAID_PENDING_CONFIRMATION"
+    | "CANCELLATION_IN_PROGRESS";
+
+  export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "CANCELLED" | "REFUNDED" | "PARTIALLY_REFUNDED";
+
+  export type OrderStatus =
+    "PENDING_PAYMENT" | "PAID" | "CONFIRMED" | "CANCELLATION_REQUESTED" | "CANCELLED" | "COMPLETED" | "EXPIRED";
+
+  export type AdminOrderSortField = "createdAt" | "departureAt" | "totalAmount";
+  export type AdminOrderSortOrder = "asc" | "desc";
+
+  export interface AdminOrderMemberSummary {
+    userId: string;
+    nickname: string | null;
+    email: string | null;
+  }
+
+  export interface AdminOrderMemberDetail {
+    userId: string;
+    username: string;
+    nickname: string | null;
+    email: string | null;
+  }
+
+  export interface AdminOrderContact {
+    contactName: string;
+    contactEmail: string;
+    countryCode: string;
+    contactPhone: string;
+    specialRequest: string | null;
+  }
+
+  export type OrderItemStatus =
+    "PENDING_PAYMENT" | "PAID" | "CONFIRMED" | "CANCELLATION_REQUESTED" | "CANCELLED" | "COMPLETED" | "EXPIRED";
+
+  export type PaymentMethod = "CREDIT_CARD" | "BANK_TRANSFER" | "LINE_PAY";
+
+  export interface AdminOrderDetailItem {
+    orderItemId: number;
+    orderItemStatus: OrderItemStatus;
+    tripId: number;
+    tripName: string;
+    departureId: number;
+    startTime: string;
+    endTime: string;
+    quantity: number;
+    unitPrice: number | string;
+    subtotal: number | string;
+    note: string | null;
+    destinations: string[];
+  }
+
+  export interface AdminOrderPayment {
+    paymentId: number;
+    amount: number | string;
+    paymentMethod: PaymentMethod;
+    status: PaymentStatus;
+    merchantTradeNo: string;
+    transactionId: string | null;
+    createdAt: string;
+    paidAt: string | null;
+  }
+
+  export interface AdminOrderSummaryResponse {
+    orderId: number;
+    orderNumber: string;
+    member: AdminOrderMemberSummary;
+    primaryTripName: string | null;
+    itemCount: number;
+    earliestDepartureAt: string | null;
+    latestEndTime: string | null;
+    totalQuantity: number;
+    totalAmount: number | string;
+    orderStatus: OrderStatus;
+    displayStatus: AdminOrderBusinessStatus;
+    paymentStatus: PaymentStatus | null;
+    createdAt: string;
+  }
+
+  export interface AdminOrderDetailResponse {
+    orderId: number;
+    orderNumber: string;
+    orderStatus: OrderStatus;
+    displayStatus: AdminOrderBusinessStatus;
+    totalAmount: number | string;
+    createdAt: string;
+    member: AdminOrderMemberDetail;
+    contact: AdminOrderContact;
+    items: AdminOrderDetailItem[];
+    payments: AdminOrderPayment[];
+  }
+
+  export type AdminOrderPageResponse = ResPage<AdminOrderSummaryResponse>;
+
+  export interface AdminOrderPageParams extends ReqPage {
+    keyword?: string;
+    status?: AdminOrderBusinessStatus;
+    paymentStatus?: PaymentStatus;
+    createdRange?: [string, string];
+    departureRange?: [string, string];
+    sortBy?: AdminOrderSortField;
+    sortOrder?: AdminOrderSortOrder;
+  }
+}
+
 // 討論區管理模組
 export namespace AdminForum {
   export type PostStatus = "ACTIVE" | "INACTIVE";

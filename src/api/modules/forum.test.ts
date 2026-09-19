@@ -108,7 +108,7 @@ describe("討論區管理 API", () => {
     api.getDirect.mockResolvedValueOnce([{ id: 1, name: "景點" }]);
 
     await expect(getAdminCategories()).resolves.toEqual([{ id: 1, name: "景點" }]);
-    expect(api.getDirect).toHaveBeenCalledWith("/api/v1/admin/category", undefined, { loading: false });
+    expect(api.getDirect).toHaveBeenCalledWith("/api/v1/admin/categories", undefined, { loading: false });
   });
 
   it("應使用正式分類 CRUD endpoints 並只送出 name", async () => {
@@ -119,9 +119,9 @@ describe("討論區管理 API", () => {
     await updateAdminCategory(3, updateParams);
     await deleteAdminCategory(3);
 
-    expect(api.postDirect).toHaveBeenCalledWith("/api/v1/admin/category", createParams, { loading: false });
-    expect(api.put).toHaveBeenCalledWith("/api/v1/admin/category/3", updateParams, { loading: false });
-    expect(api.delete).toHaveBeenCalledWith("/api/v1/admin/category/3", undefined, { loading: false });
+    expect(api.postDirect).toHaveBeenCalledWith("/api/v1/admin/categories", createParams, { loading: false });
+    expect(api.put).toHaveBeenCalledWith("/api/v1/admin/categories/3", updateParams, { loading: false });
+    expect(api.delete).toHaveBeenCalledWith("/api/v1/admin/categories/3", undefined, { loading: false });
     expect(Object.keys(createParams)).toEqual(["name"]);
     expect(Object.keys(updateParams)).toEqual(["name"]);
   });

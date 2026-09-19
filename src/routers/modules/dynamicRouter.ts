@@ -96,6 +96,34 @@ const DYNAMIC_ROUTE_CATALOG: Menu.MenuOptions[] = [
         }
       }
     ]
+  },
+  {
+    path: "/order",
+    name: "order",
+    meta: {
+      icon: "Tickets",
+      title: "訂單管理",
+      isHide: false,
+      isFull: false,
+      isAffix: false,
+      isKeepAlive: false
+    },
+    children: [
+      {
+        path: "/order/orderManage",
+        name: "orderManage",
+        component: "/order/orderManage/index",
+        meta: {
+          icon: "Document",
+          title: "訂單列表",
+          isHide: false,
+          isFull: false,
+          isAffix: false,
+          isKeepAlive: true,
+          requiredPermission: "ADMIN_ORDER_LIST_READ"
+        }
+      }
+    ]
   }
 ];
 
