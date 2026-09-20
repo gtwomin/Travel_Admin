@@ -13,6 +13,20 @@ const modules = import.meta.glob("@/views/**/*.vue");
 
 const DYNAMIC_ROUTE_CATALOG: Menu.MenuOptions[] = [
   {
+    path: "/orders",
+    name: "orderManage",
+    component: "/order/orderManage/index",
+    meta: {
+      icon: "Tickets",
+      title: "訂單管理",
+      isHide: false,
+      isFull: false,
+      isAffix: false,
+      isKeepAlive: true,
+      requiredPermission: "ADMIN_ORDER_LIST_READ"
+    }
+  },
+  {
     path: "/system",
     name: "system",
     redirect: "/system/accountManage",
