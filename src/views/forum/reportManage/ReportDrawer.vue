@@ -11,7 +11,7 @@
     :show-close="!loading"
   >
     <template v-if="row">
-      <el-divider content-position="left">檢舉資訊</el-divider>
+      <el-divider class="detail-divider" content-position="left">檢舉資訊</el-divider>
       <el-descriptions :column="1" border>
         <el-descriptions-item label="檢舉 ID">{{ row.id }}</el-descriptions-item>
         <el-descriptions-item label="原因"
@@ -30,7 +30,7 @@
         >
         <el-descriptions-item label="檢舉時間">{{ formatTaipeiDateTime(row.createAt) }}</el-descriptions-item>
       </el-descriptions>
-      <el-divider content-position="left">被檢舉內容</el-divider>
+      <el-divider class="detail-divider" content-position="left">被檢舉內容</el-divider>
       <el-descriptions :column="1" border>
         <el-descriptions-item label="類型">{{ row.target.type === "POST" ? "貼文" : "留言" }}</el-descriptions-item>
         <el-descriptions-item :label="row.target.type === 'POST' ? '文章 ID' : '留言 ID'">{{
@@ -59,12 +59,24 @@
         >
       </el-descriptions>
       <template v-if="canProcess">
-        <el-divider content-position="left">處理操作</el-divider>
-        <p>完成後無法再次修改處理結果。</p>
-        <div class="process-actions">
-          <el-button type="danger" plain :loading="loading" :disabled="loading" @click="process('REJECTED')">駁回檢舉</el-button>
-          <el-button type="primary" :loading="loading" :disabled="loading" @click="process('REVIEWED')">標記已處理</el-button>
-        </div>
+        <el-divider class="detail-divider" content-position="left">處理操作</el-divider>
+        <el-descriptions :column="1" border class="process-descriptions">
+          <el-descriptions-item label="操作說明">請確認檢舉內容後選擇最終處理結果。</el-descriptions-item>
+          <el-descriptions-item label="注意事項">
+            <div class="process-warning">
+              <el-icon aria-hidden="true"><WarningFilled /></el-icon>
+              <span>完成後將無法再次修改處理結果。</span>
+            </div>
+          </el-descriptions-item>
+          <el-descriptions-item label="處理結果">
+            <div class="process-actions">
+              <el-button type="danger" plain :loading="loading" :disabled="loading" @click="process('REJECTED')"
+                >駁回檢舉</el-button
+              >
+              <el-button type="primary" :loading="loading" :disabled="loading" @click="process('REVIEWED')">標記已處理</el-button>
+            </div>
+          </el-descriptions-item>
+        </el-descriptions>
       </template>
     </template>
     <template #footer><el-button :disabled="loading" @click="visible = false">關閉</el-button></template>
@@ -74,6 +86,7 @@
 
 <script setup lang="ts" name="ReportDrawer">
 import { computed, ref } from "vue";
+import { WarningFilled } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { AdminForum } from "@/api/interface";
 import { updateAdminReportStatus } from "@/api/modules/forum";
@@ -147,10 +160,23 @@ defineExpose({ acceptParams });
   line-height: 1.5;
   white-space: normal;
 }
+.detail-divider :deep(.el-divider__text.is-left) {
+  left: 0;
+  padding: 0 12px;
+}
+.process-warning {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--el-color-warning-dark-2);
+}
 .process-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
 }
 .process-actions .el-button {
   margin-left: 0;
@@ -158,5 +184,15 @@ defineExpose({ acceptParams });
 .report-drawer :deep(.el-drawer__body) {
   min-width: 0;
   overflow-x: hidden;
+}
+
+@media (width <= 520px) {
+  .process-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .process-actions .el-button {
+    width: 100%;
+  }
 }
 </style>

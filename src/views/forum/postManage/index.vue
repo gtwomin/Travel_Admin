@@ -89,7 +89,36 @@ const renderCategorySearch = ({ searchParam, placeholder, clearable }: SearchRen
   </el-select>
 );
 
-const getTableList = (params: AdminForum.AdminPostPageParams) => getAdminPostPage(params);
+type StatusSearchValue = "ALL" | AdminForum.PostStatus;
+
+const statusSearchOptions: Array<{ label: string; value: StatusSearchValue }> = [
+  { label: "全部", value: "ALL" },
+  ...statusOptions.map(({ label, value }) => ({ label, value }))
+];
+
+const renderStatusSearch = ({ searchParam, placeholder, clearable }: SearchRenderScope) => (
+  <el-select
+    modelValue={searchParam.status ?? "ALL"}
+    clearable={clearable}
+    placeholder={placeholder}
+    onChange={(value: StatusSearchValue) => {
+      searchParam.status = value === "ALL" ? undefined : value;
+    }}
+  >
+    {statusSearchOptions.map(option => (
+      <el-option key={option.value} label={option.label} value={option.value} />
+    ))}
+  </el-select>
+);
+
+const getTableList = (params: AdminForum.AdminPostPageParams) => {
+  const searchParam = proTable.value?.searchParam;
+  if (!searchParam || searchParam.status !== undefined) return getAdminPostPage(params);
+
+  const requestParams = { ...params };
+  delete requestParams.status;
+  return getAdminPostPage(requestParams);
+};
 
 const openDetail = (row: AdminForum.AdminPostResponse) => {
   drawerRef.value?.acceptParams(row);
@@ -173,7 +202,7 @@ const columns = reactive<ColumnProps<AdminForum.AdminPostResponse>[]>([
     label: "狀態",
     width: 110,
     enum: statusOptions,
-    search: { el: "select", label: "狀態", props: { placeholder: "全部" } },
+    search: { render: renderStatusSearch, defaultValue: "ACTIVE", label: "狀態", props: { placeholder: "全部" } },
     render: ({ row }) => <ElTag type={statusTagType(row.status)}>{statusLabel(row.status)}</ElTag>
   },
   {
