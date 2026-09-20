@@ -12,11 +12,11 @@
     @closed="handleClosed"
   >
     <div class="trip-editor-content">
-      <el-steps :active="currentStep" align-center class="trip-editor-steps">
+      <el-steps :active="visibleStepIndex" align-center class="trip-editor-steps">
         <el-step title="基本資料" />
         <el-step title="行程圖片" />
         <el-step title="每日行程" />
-        <el-step title="出發梯次" />
+        <el-step v-if="isFixedDeparture" title="出發梯次" />
         <el-step title="預覽與上架" />
       </el-steps>
 
@@ -188,7 +188,7 @@
         <div v-if="!loading && !loadError" class="trip-editor-footer-actions">
           <el-button
             v-if="currentStep > 0"
-            :disabled="submitting || photoBusy || dayBusy || departureBusy || (currentStep === 2 && dayDirty)"
+            :disabled="submitting || photoBusy || dayBusy || departureBusy || previewBusy"
             @click="previousStep"
           >
             上一步
@@ -227,7 +227,8 @@ import {
   getAdminTripCities,
   getAdminTripDetail,
   updateAdminTrip,
-  updateAdminTripStatus
+  updateAdminTripStatus,
+  getAdminTripDays
 } from "@/api/modules/trip";
 
 import TripDaySection from "./TripDaySection.vue";
@@ -282,6 +283,15 @@ const dayBusy = ref(false);
 const dayDirty = ref(false);
 const formRef = ref<FormInstance>();
 const form = reactive<TripFormModel>(createDefaultForm());
+const isFixedDeparture = computed(() => form.bookingMode === "FIXED_DEPARTURE");
+
+// 內部仍用 4 代表預覽頁；自由日期的畫面只有四個步驟。
+const visibleStepIndex = computed(() => {
+  if (!isFixedDeparture.value && currentStep.value === 4) {
+    return 3;
+  }
+  return currentStep.value;
+});
 const cityOptions = ref<AdminTrip.CityOptionResponse[]>([]);
 const cityOptionsLoading = ref(false);
 const cityOptionsError = ref(false);
@@ -540,6 +550,29 @@ const saveBasicInfo = async () => {
       ElMessage.success("行程新增成功");
     } else {
       if (tripId.value === null) return;
+
+      // 查詢實際資料，包含之前改短天數卻尚未刪除的每日行程。
+      const existingDays = await getAdminTripDays(tripId.value);
+      const extraDays = existingDays.filter(day => day.dayNumber > payload.durationDays);
+
+      if (extraDays.length > 0) {
+        const dayLabels = extraDays.map(day => `Day ${day.dayNumber}`).join("、");
+
+        try {
+          await ElMessageBox.confirm(
+            `行程設定為 ${payload.durationDays} 天，將永久刪除 ${dayLabels} 及其每日內容、關聯景點資料。確定繼續嗎？`,
+            "確認縮短行程",
+            {
+              type: "warning",
+              confirmButtonText: "確認刪除並儲存",
+              cancelButtonText: "取消"
+            }
+          );
+        } catch {
+          return;
+        }
+      }
+
       await updateAdminTrip(tripId.value, payload);
       ElMessage.success("行程更新成功");
     }
@@ -554,29 +587,57 @@ const saveBasicInfo = async () => {
   }
 };
 
-const previousStep = () => {
+const previousStep = async () => {
   if (
     submitting.value ||
     photoBusy.value ||
     dayBusy.value ||
-    (currentStep.value === 2 && dayDirty.value) ||
+    departureBusy.value ||
+    previewBusy.value ||
     currentStep.value === 0
-  )
+  ) {
     return;
+  }
+
+  if (currentStep.value === 2 && dayDirty.value) {
+    try {
+      await ElMessageBox.confirm("每日行程尚有未儲存內容，返回上一步會放棄這些變更。確定返回嗎？", "尚未儲存", {
+        type: "warning",
+        confirmButtonText: "放棄變更並返回",
+        cancelButtonText: "繼續編輯"
+      });
+    } catch {
+      return;
+    }
+  }
+
+  // 自由日期：預覽頁直接返回每日行程。
+  if (!isFixedDeparture.value && currentStep.value === 4) {
+    currentStep.value = 2;
+    return;
+  }
+
   currentStep.value = (currentStep.value - 1) as WizardStep;
 };
-
 const nextStep = () => {
   if (
     submitting.value ||
     photoBusy.value ||
     dayBusy.value ||
+    departureBusy.value ||
     (currentStep.value === 2 && dayDirty.value) ||
     currentStep.value >= 4 ||
     !isPersisted.value
   ) {
     return;
   }
+
+  // 自由日期：從每日行程直接進預覽。
+  if (!isFixedDeparture.value && currentStep.value === 2) {
+    currentStep.value = 4;
+    return;
+  }
+
   currentStep.value = (currentStep.value + 1) as WizardStep;
 };
 const changeTripStatus = async (nextStatus: AdminTrip.TripStatus) => {
