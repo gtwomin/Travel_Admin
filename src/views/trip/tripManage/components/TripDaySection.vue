@@ -15,7 +15,6 @@
         >
           重新整理
         </el-button>
-        <el-button type="primary" :icon="Plus" :disabled="isBusy || loadError" @click="addDay">新增一天</el-button>
       </div>
     </div>
 
@@ -24,9 +23,7 @@
       <p>每日行程載入失敗，請稍後再試。</p>
       <el-button type="primary" plain :disabled="isBusy" @click="loadDays(true)">重新載入</el-button>
     </div>
-    <el-empty v-else-if="days.length === 0" description="尚未建立每日行程">
-      <el-button type="primary" :disabled="isBusy" @click="addDay">新增第一天</el-button>
-    </el-empty>
+    <el-empty v-else-if="days.length === 0" description="尚未建立每日行程" />
 
     <el-collapse v-else v-model="expandedDays" class="day-list">
       <el-collapse-item
@@ -54,9 +51,6 @@
 
         <div class="day-card-header-actions">
           <el-tag v-if="isDayDirty(day)" type="warning" size="small">尚未儲存</el-tag>
-          <el-button text type="danger" :disabled="isBusy" :loading="deletingKey === day.key" @click="deleteDay(day)">
-            刪除一天
-          </el-button>
         </div>
 
         <el-form
@@ -97,15 +91,8 @@
             </div>
           </el-form-item>
           <div class="day-form-grid day-form-grid-primary">
-            <el-form-item label="第幾天" prop="dayNumber">
-              <el-input-number
-                v-model="day.dayNumber"
-                class="full-width"
-                :min="1"
-                :step="1"
-                :precision="0"
-                controls-position="right"
-              />
+            <el-form-item label="第幾天">
+              <el-input :model-value="`第 ${day.dayNumber} 天`" readonly />
             </el-form-item>
             <el-form-item label="路線標題" prop="title">
               <el-input v-model="day.title" clearable maxlength="100" show-word-limit placeholder="例如：京都市區文化巡禮" />
@@ -186,12 +173,12 @@
 
 <script setup lang="ts" name="TripDaySection">
 import { Picture, Plus, Refresh } from "@element-plus/icons-vue";
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from "element-plus";
+import { ElMessage, type FormInstance, type FormRules } from "element-plus";
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 
 import { AdminTrip } from "@/api/interface";
 import UploadImg from "@/components/Upload/Img.vue";
-import { createAdminTripDay, deleteAdminTripDay, getAdminTripDays, updateAdminTripDay } from "@/api/modules/trip";
+import { createAdminTripDay, getAdminTripDays, updateAdminTripDay } from "@/api/modules/trip";
 
 interface EditableTripDay {
   key: string;
@@ -209,7 +196,10 @@ interface EditableTripDay {
   note: string;
 }
 
-const props = defineProps<{ tripId: number }>();
+const props = defineProps<{
+  tripId: number;
+  durationDays: number;
+}>();
 const emit = defineEmits<{
   changed: [];
   busyChange: [busy: boolean];
@@ -231,14 +221,14 @@ const setDayPhoto = (key: string, file: File | null) => {
 const loading = ref(false);
 const loadError = ref(false);
 const savingKey = ref<string | null>(null);
-const deletingKey = ref<string | null>(null);
+
 const dayFormRefs = new Map<string, FormInstance>();
 const persistedSnapshots = reactive(new Map<string, EditableTripDay>());
 let requestSequence = 0;
 let newDaySequence = 0;
 let disposed = false;
 
-const isBusy = computed(() => loading.value || savingKey.value !== null || deletingKey.value !== null);
+const isBusy = computed(() => loading.value || savingKey.value !== null);
 const isDayDirty = (day: EditableTripDay) => {
   const snapshot = persistedSnapshots.get(day.key);
   return snapshot ? serializeDay(day) !== serializeDay(snapshot) : true;
@@ -348,6 +338,38 @@ const loadDays = async (preserveDrafts = false) => {
       if (snapshot) persistedSnapshots.set(draft.key, snapshot);
       else persistedSnapshots.delete(draft.key);
     }
+    const durationDays = props.durationDays;
+
+    if (!Number.isInteger(durationDays) || durationDays < 1 || durationDays > 10) {
+      ElMessage.error("行程天數資料不正確，請先回基本資料確認並儲存。");
+      loadError.value = true;
+      return false;
+    }
+
+    // 保留已存在的每日內容，只補上缺少的天數。
+    for (let dayNumber = 1; dayNumber <= durationDays; dayNumber += 1) {
+      const exists = nextDays.some(day => day.dayNumber === dayNumber);
+      if (exists) continue;
+
+      newDaySequence += 1;
+
+      nextDays.push({
+        key: `new-${newDaySequence}`,
+        id: null,
+        dayNumber,
+        title: "",
+        content: "",
+        breakfast: "",
+        lunch: "",
+        dinner: "",
+        hotel: "",
+        transportation: "",
+        extraFee: 0,
+        extraFeeDescription: "",
+        note: ""
+      });
+    }
+
     days.value = nextDays.sort((left, right) => left.dayNumber - right.dayNumber);
     expandedDays.value = expandedDays.value.filter(key => nextDays.some(day => day.key === key));
     return true;
@@ -357,29 +379,6 @@ const loadDays = async (preserveDrafts = false) => {
   } finally {
     if (!disposed && sequence === requestSequence) loading.value = false;
   }
-};
-
-const addDay = () => {
-  if (isBusy.value || loadError.value) return;
-
-  const nextDayNumber = days.value.reduce((maximum, day) => Math.max(maximum, day.dayNumber), 0) + 1;
-  newDaySequence += 1;
-  expandedDays.value.push(`new-${newDaySequence}`);
-  days.value.push({
-    key: `new-${newDaySequence}`,
-    id: null,
-    dayNumber: nextDayNumber,
-    title: "",
-    content: "",
-    breakfast: "",
-    lunch: "",
-    dinner: "",
-    hotel: "",
-    transportation: "",
-    extraFee: 0,
-    extraFeeDescription: "",
-    note: ""
-  });
 };
 
 const refreshAfterMutation = async (successMessage: string) => {
@@ -423,45 +422,6 @@ const saveDay = async (day: EditableTripDay) => {
     // API 錯誤訊息由全域攔截器處理，保留目前編輯內容讓使用者修正後重試。
   } finally {
     savingKey.value = null;
-  }
-};
-
-const deleteDay = async (day: EditableTripDay) => {
-  if (isBusy.value) return;
-
-  const dayId = day.id;
-  const isDraft = dayId === null;
-  try {
-    await ElMessageBox.confirm(
-      isDraft ? "確定移除尚未儲存的每日行程嗎？" : `確定刪除第 ${day.dayNumber} 天嗎？刪除後無法復原。`,
-      isDraft ? "移除每日行程草稿" : "刪除每日行程",
-      { type: "warning", confirmButtonText: isDraft ? "移除" : "刪除", cancelButtonText: "取消" }
-    );
-  } catch {
-    return;
-  }
-
-  if (isDraft) {
-    days.value = days.value.filter(item => item.key !== day.key);
-    persistedSnapshots.delete(day.key);
-    clearDayPhoto(day.key);
-    expandedDays.value = expandedDays.value.filter(key => key !== day.key);
-    ElMessage.success("每日行程草稿已移除");
-    return;
-  }
-
-  deletingKey.value = day.key;
-  try {
-    await deleteAdminTripDay(props.tripId, dayId);
-    days.value = days.value.filter(item => item.key !== day.key);
-    persistedSnapshots.delete(day.key);
-    clearDayPhoto(day.key);
-    expandedDays.value = expandedDays.value.filter(key => key !== day.key);
-    await refreshAfterMutation("每日行程已刪除");
-  } catch {
-    // API 錯誤訊息由全域攔截器處理，保留目前清單讓使用者重試。
-  } finally {
-    deletingKey.value = null;
   }
 };
 

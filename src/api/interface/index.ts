@@ -253,6 +253,7 @@ export namespace AdminTrip {
     tripContent: string | null;
     bookingMode: TripBookingMode;
     productType: TripProductType;
+    durationDays: number;
   }
 
   export interface TripBaseRequest {
@@ -264,6 +265,7 @@ export namespace AdminTrip {
     destinations: TravelDestination[];
     bookingMode: TripBookingMode | null;
     productType: TripProductType | null;
+    durationDays: number;
   }
 
   export type TripCreateRequest = TripBaseRequest;

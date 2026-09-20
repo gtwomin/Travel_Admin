@@ -3,7 +3,8 @@ import { ADMIN_SERVICE } from "@/api/config/servicePort";
 import { AdminTrip } from "@/api/interface";
 
 const toTripPayload = (params: AdminTrip.TripBaseRequest) => {
-  const { tripName, summary, tripContent, tripPrice, destinations, bookingMode, productType, departureCity } = params;
+  const { tripName, summary, tripContent, tripPrice, destinations, bookingMode, productType, departureCity, durationDays } =
+    params;
 
   return {
     tripName,
@@ -13,7 +14,8 @@ const toTripPayload = (params: AdminTrip.TripBaseRequest) => {
     destinations,
     bookingMode,
     productType,
-    departureCity
+    departureCity,
+    durationDays
   };
 };
 

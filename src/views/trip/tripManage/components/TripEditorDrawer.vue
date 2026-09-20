@@ -96,6 +96,12 @@
                 <el-option label="固定梯次" value="FIXED_DEPARTURE" />
               </el-select>
             </el-form-item>
+            <el-form-item label="行程天數" prop="durationDays">
+              <el-select v-model="form.durationDays" class="full-width" placeholder="請選擇行程天數">
+                <el-option v-for="day in 10" :key="day" :label="`${day} 天`" :value="day" />
+              </el-select>
+              <p class="form-hint">自由日期與固定梯次皆適用，每日行程將依選擇的天數建立。</p>
+            </el-form-item>
             <el-form-item label="商品類型" prop="productType">
               <el-select v-model="productTypeModel" class="full-width" clearable placeholder="請選擇商品類型">
                 <el-option label="套裝行程" value="PACKAGE_TOUR" />
@@ -137,6 +143,7 @@
         <TripDaySection
           v-else-if="currentStep === 2 && isPersisted"
           :trip-id="persistedTripId"
+          :duration-days="form.durationDays"
           @busy-change="handleDayBusyChange"
           @dirty-change="handleDayDirtyChange"
           @changed="handleDayChanged"
@@ -232,6 +239,7 @@ type EditorMode = "create" | "edit";
 type WizardStep = 0 | 1 | 2 | 3 | 4;
 
 interface TripFormModel {
+  durationDays: number;
   departureCity: AdminTrip.DepartureCity | null;
   tripName: string;
   summary: string;
@@ -245,6 +253,7 @@ interface TripFormModel {
 const emit = defineEmits<{ saved: [] }>();
 
 const createDefaultForm = (): TripFormModel => ({
+  durationDays: 1,
   departureCity: null,
   tripName: "",
   summary: "",
@@ -317,6 +326,7 @@ let requestSequence = 0;
 
 const serializeForm = (value: TripFormModel) =>
   JSON.stringify({
+    durationDays: value.durationDays,
     departureCity: value.departureCity,
     tripName: value.tripName,
     summary: value.summary,
@@ -385,6 +395,7 @@ const rules: FormRules = {
 };
 
 const toTripPayload = (): AdminTrip.TripBaseRequest => ({
+  durationDays: form.durationDays,
   departureCity: form.departureCity,
   tripName: form.tripName.trim(),
   summary: form.summary.trim() || null,
@@ -466,6 +477,7 @@ const loadEditDetail = async (id: number, requestId: number) => {
     if (requestId !== requestSequence) return;
 
     Object.assign(form, {
+      durationDays: detail.durationDays,
       departureCity: detail.departureCity ?? null,
       tripName: detail.tripName ?? "",
       summary: detail.summary ?? "",
