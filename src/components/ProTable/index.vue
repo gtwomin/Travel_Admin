@@ -90,7 +90,7 @@
         </div>
       </template>
     </el-table>
-  <!-- 分頁元件 -->
+    <!-- 分頁元件 -->
     <slot name="pagination">
       <Pagination
         v-if="pagination"
@@ -101,19 +101,14 @@
     </slot>
   </div>
   <!-- 欄位設定 -->
-  <ColSetting
-    v-if="toolButton"
-    ref="colRef"
-    v-model:col-setting="colSetting"
-    :show-sort="showColumnSortSetting"
-  />
+  <ColSetting v-if="toolButton" ref="colRef" v-model:col-setting="colSetting" :show-sort="showColumnSortSetting" />
 </template>
 
 <script setup lang="ts" name="ProTable">
 import { Operation, Refresh, Search } from "@element-plus/icons-vue";
 import { ElTable } from "element-plus";
 import Sortable from "sortablejs";
-import { computed, onMounted, provide, reactive, ref, unref, watch } from "vue";
+import { computed, nextTick, onMounted, provide, reactive, ref, unref, watch } from "vue";
 
 import { BreakPoint } from "@/components/Grid/interface";
 import { ColumnProps, TypeProps } from "@/components/ProTable/interface";
@@ -217,8 +212,12 @@ const handleTableSortChange = ({ prop, order }: { prop?: string; order?: "ascend
 const clearSelection = () => tableRef.value!.clearSelection();
 
 // 初始化表格資料並啟用拖曳排序
-onMounted(() => {
-  dragSort();
+onMounted(async () => {
+  if (props.columns.some(column => column.type === "sort")) {
+    await nextTick();
+    dragSort();
+  }
+
   if (props.requestAuto) {
     getTableList();
   }
@@ -337,7 +336,9 @@ const _reset = () => {
 
 // 表格拖曳排序
 const dragSort = () => {
-  const tbody = document.querySelector(`#${uuid.value} tbody`) as HTMLElement;
+  const tbody = document.querySelector(`#${uuid.value} tbody`);
+  if (!(tbody instanceof HTMLElement)) return;
+
   Sortable.create(tbody, {
     handle: ".move",
     animation: 300,

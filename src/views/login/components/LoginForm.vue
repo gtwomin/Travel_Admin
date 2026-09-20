@@ -1,7 +1,7 @@
 <template>
   <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" size="large">
     <el-form-item prop="username">
-      <el-input v-model="loginForm.username" placeholder="使用者名稱：admin / user">
+      <el-input v-model="loginForm.username" placeholder="請輸入使用者名稱">
         <template #prefix>
           <el-icon class="el-input__icon">
             <user />
@@ -10,7 +10,7 @@
       </el-input>
     </el-form-item>
     <el-form-item prop="password">
-      <el-input v-model="loginForm.password" type="password" placeholder="密碼：123456" show-password autocomplete="new-password">
+      <el-input v-model="loginForm.password" type="password" placeholder="請輸入密碼" show-password autocomplete="new-password">
         <template #prefix>
           <el-icon class="el-input__icon">
             <lock />
@@ -20,7 +20,7 @@
     </el-form-item>
   </el-form>
   <div class="login-btn">
-    <el-button :icon="CircleClose" round size="large" @click="resetForm(loginFormRef)"> 重設 </el-button>
+    <el-button :icon="CircleClose" round size="large" @click="resetForm(loginFormRef)"> 清空 </el-button>
     <el-button :icon="UserFilled" round size="large" type="primary" :loading="loading" @click="login(loginFormRef)">
       登入
     </el-button>

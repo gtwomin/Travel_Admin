@@ -9,7 +9,7 @@
       :default-sort="{ prop: 'createdAt', order: 'descending' }"
       :search-col="{ xs: 1, sm: 2, md: 2, lg: 3, xl: 4 }"
     />
-    <UserDrawer ref="drawerRef" />
+    <UserDrawer ref="drawerRef" @view-orders="viewUserOrders" />
   </div>
 </template>
 
@@ -17,6 +17,7 @@
 import { EditPen, View } from "@element-plus/icons-vue";
 import { ElButton, ElTag } from "element-plus";
 import { reactive, ref } from "vue";
+import { useRouter } from "vue-router";
 
 import { AdminUser } from "@/api/interface";
 import { getAdminUserDetail, getAdminUserPage, updateAdminUserProfile, updateAdminUserStatus } from "@/api/modules/user";
@@ -28,6 +29,7 @@ import { formatTaipeiDateTime } from "@/utils/dateFormat";
 import UserDrawer from "@/views/proTable/components/UserDrawer.vue";
 
 const authStore = useAuthStore();
+const router = useRouter();
 const proTable = ref<ProTableInstance>();
 const drawerRef = ref<InstanceType<typeof UserDrawer> | null>(null);
 
@@ -41,6 +43,16 @@ const getTableList = (params: AdminUser.AdminUserPageParams) => getAdminUserPage
 const openDetail = async (row: AdminUser.AdminUserSummaryResponse) => {
   const detail = await getAdminUserDetail(row.id);
   drawerRef.value?.acceptParams({ title: "使用者詳情", mode: "view", row: detail });
+};
+
+const viewUserOrders = (userId: string) => {
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) return;
+
+  void router.push({
+    name: "orderManage",
+    query: { userId: normalizedUserId }
+  });
 };
 
 const openEdit = async (row: AdminUser.AdminUserSummaryResponse) => {

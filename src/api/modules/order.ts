@@ -9,7 +9,8 @@ const toDateRangeParams = (range: [string, string] | undefined, fromKey: string,
 };
 
 export const getAdminOrderPage = (params: AdminOrder.AdminOrderPageParams) => {
-  const { pageNum, pageSize, keyword, status, paymentStatus, createdRange, departureRange, sortBy, sortOrder } = params;
+  const { pageNum, pageSize, userId, keyword, status, paymentStatus, createdRange, departureRange, sortBy, sortOrder } = params;
+  const normalizedUserId = userId?.trim();
   const normalizedKeyword = keyword?.trim();
   const sortParams = sortBy ? { sortBy, ...(sortOrder ? { sortOrder } : {}) } : {};
 
@@ -19,6 +20,7 @@ export const getAdminOrderPage = (params: AdminOrder.AdminOrderPageParams) => {
       {
         pageNum,
         pageSize,
+        ...(normalizedUserId ? { userId: normalizedUserId } : {}),
         ...(normalizedKeyword ? { keyword: normalizedKeyword } : {}),
         ...(status ? { status } : {}),
         ...(paymentStatus ? { paymentStatus } : {}),

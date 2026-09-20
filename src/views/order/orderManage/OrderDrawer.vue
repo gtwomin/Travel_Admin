@@ -225,13 +225,6 @@ defineExpose({ acceptParams });
 }
 .table-scroll {
   min-width: 0;
-  overflow-x: auto;
-}
-.detail-table {
-  min-width: 920px;
-}
-.payment-table {
-  min-width: 1080px;
 }
 .long-text {
   display: block;

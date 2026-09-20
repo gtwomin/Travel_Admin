@@ -1,7 +1,15 @@
 <template>
   <div class="table-box order-manage">
+    <div v-if="memberScopedUserId" class="member-scope-banner" role="status">
+      <div class="member-scope-copy">
+        <span>目前僅顯示指定會員的訂單</span>
+        <span class="member-scope-id">會員 ID：{{ memberScopedUserId }}</span>
+      </div>
+      <el-button type="primary" link @click="clearMemberScope">查看全部訂單</el-button>
+    </div>
     <ProTable
       ref="proTable"
+      :key="memberScopedUserId || 'all-orders'"
       :columns="columns"
       :request-api="getTableList"
       :server-sort="true"
@@ -15,8 +23,9 @@
 
 <script setup lang="tsx" name="orderManage">
 import { View } from "@element-plus/icons-vue";
-import { onActivated, reactive, ref } from "vue";
 import { ElButton, ElTag } from "element-plus";
+import { computed, onActivated, reactive, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 import { AdminOrder } from "@/api/interface";
 import { getAdminOrderDetail, getAdminOrderPage } from "@/api/modules/order";
@@ -31,8 +40,18 @@ type TagType = "success" | "info" | "warning" | "danger" | "primary";
 const proTable = ref<ProTableInstance>();
 const drawerRef = ref<InstanceType<typeof OrderDrawer> | null>(null);
 const authStore = useAuthStore();
+const route = useRoute();
+const router = useRouter();
 const loadingOrderId = ref<number | null>(null);
 let hasActivatedOnce = false;
+
+const memberScopedUserId = computed(() => {
+  const rawUserId = route.query.userId;
+  if (typeof rawUserId !== "string") return undefined;
+
+  const normalizedUserId = rawUserId.trim();
+  return normalizedUserId || undefined;
+});
 
 const businessStatusOptions: Array<{
   label: string;
@@ -82,7 +101,21 @@ const renderMember = (member: AdminOrder.AdminOrderMemberSummary | null) => (
   </div>
 );
 
-const getTableList = (params: AdminOrder.AdminOrderPageParams) => getAdminOrderPage(params);
+const getTableList = (params: AdminOrder.AdminOrderPageParams) =>
+  getAdminOrderPage({
+    ...params,
+    userId: memberScopedUserId.value
+  });
+
+const clearMemberScope = () => {
+  const query = { ...route.query };
+  delete query.userId;
+
+  void router.replace({
+    name: "orderManage",
+    query
+  });
+};
 
 const openDetail = async (row: AdminOrder.AdminOrderSummaryResponse) => {
   if (loadingOrderId.value !== null || !authStore.hasPermission("ADMIN_ORDER_DETAIL_READ")) return;
@@ -214,6 +247,27 @@ onActivated(() => {
 .order-manage {
   min-width: 0;
 }
+.member-scope-banner {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+  border: 1px solid var(--el-color-primary-light-5);
+  border-radius: var(--el-border-radius-base);
+}
+.member-scope-copy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  min-width: 0;
+}
+.member-scope-id {
+  overflow-wrap: anywhere;
+}
 .order-manage :deep(.member-cell) {
   display: grid;
   gap: 4px;
@@ -232,5 +286,12 @@ onActivated(() => {
 }
 .order-manage :deep(.el-table) {
   font-variant-numeric: tabular-nums;
+}
+
+@media (width <= 768px) {
+  .member-scope-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 </style>

@@ -46,6 +46,18 @@
           {{ formatTaipeiDateTime(currentRow.updatedAt) }}
         </el-descriptions-item>
       </el-descriptions>
+
+      <template v-if="canViewOrders">
+        <el-divider class="detail-divider" content-position="left">訂單紀錄</el-divider>
+        <el-descriptions :column="1" border>
+          <el-descriptions-item label="會員訂單">
+            <div class="order-history-action">
+              <span class="order-history-description">查看此會員的訂單、付款狀態與訂單明細</span>
+              <el-button type="primary" plain :icon="Tickets" @click="handleViewOrders">查看訂單</el-button>
+            </div>
+          </el-descriptions-item>
+        </el-descriptions>
+      </template>
     </template>
 
     <el-form v-else ref="formRef" :model="formData" :rules="rules" label-width="82px">
@@ -102,13 +114,14 @@
 </template>
 
 <script setup lang="ts" name="UserDrawer">
-import { Avatar } from "@element-plus/icons-vue";
+import { Avatar, Tickets } from "@element-plus/icons-vue";
 import { ElMessage, type FormInstance, type FormRules } from "element-plus";
-import { reactive, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 
 import { AdminUser } from "@/api/interface";
 import { resolveAvatarUrl } from "@/api/modules/user";
 import UploadImg from "@/components/Upload/Img.vue";
+import { useAuthStore } from "@/stores/modules/auth";
 import { formatTaipeiDateTime, getTaipeiToday } from "@/utils/dateFormat";
 
 interface DrawerProps {
@@ -131,6 +144,8 @@ interface NormalizedDrawerProps {
 const drawerVisible = ref(false);
 const submitting = ref(false);
 const formRef = ref<FormInstance>();
+const authStore = useAuthStore();
+const canViewOrders = computed(() => authStore.hasPermission("ADMIN_ORDER_LIST_READ"));
 const drawerProps = ref<NormalizedDrawerProps>({ title: "使用者詳情", mode: "view", row: {} });
 const currentRow = ref<Partial<AdminUser.AdminUserDetailResponse>>({});
 const originalAvatar = ref<string | null>(null);
@@ -175,7 +190,18 @@ const rules: FormRules = {
   email: [{ validator: validateEmail, trigger: "blur" }]
 };
 
+const emit = defineEmits<{
+  viewOrders: [userId: string];
+}>();
+
 const disabledBirthday = (date: Date) => date < minimumBirthday || date > maximumBirthday;
+
+const handleViewOrders = () => {
+  const userId = currentRow.value.id;
+  if (typeof userId !== "string" || !userId.trim()) return;
+
+  emit("viewOrders", userId.trim());
+};
 
 const acceptParams = (params: DrawerProps) => {
   drawerProps.value = {
@@ -242,6 +268,27 @@ defineExpose({ acceptParams });
   display: block;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+.el-descriptions :deep(.el-descriptions__label) {
+  width: 104px;
+  min-width: 104px;
+  white-space: nowrap;
+}
+.order-history-action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+.order-history-description {
+  flex: 1 1 180px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.order-history-action :deep(.el-button) {
+  flex: 0 0 auto;
 }
 .detail-divider :deep(.el-divider__text.is-left) {
   left: 0;

@@ -24,6 +24,14 @@ describe("訂單管理 API", () => {
     expect(api.getDirect).toHaveBeenCalledWith("/api/v1/admin/orders", { pageNum: 2, pageSize: 25 }, { loading: false });
   });
 
+  it("應在指定會員範圍時傳送 userId", async () => {
+    const userId = "00000000-0000-0000-0000-000000000001";
+
+    await getAdminOrderPage({ pageNum: 1, pageSize: 10, userId });
+
+    expect(api.getDirect).toHaveBeenCalledWith("/api/v1/admin/orders", { pageNum: 1, pageSize: 10, userId }, { loading: false });
+  });
+
   it("應傳送關鍵字、業務狀態與付款狀態", async () => {
     await getAdminOrderPage({
       pageNum: 1,

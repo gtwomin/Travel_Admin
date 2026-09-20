@@ -234,6 +234,7 @@ export namespace AdminOrder {
   export type AdminOrderPageResponse = ResPage<AdminOrderSummaryResponse>;
 
   export interface AdminOrderPageParams extends ReqPage {
+    userId?: string;
     keyword?: string;
     status?: AdminOrderBusinessStatus;
     paymentStatus?: PaymentStatus;
