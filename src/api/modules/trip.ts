@@ -189,7 +189,35 @@ export const updateAdminTripDay = (tripId: number, dayId: number, params: AdminT
 
 export const deleteAdminTripDay = (tripId: number, dayId: number): Promise<void> =>
   http.delete(`${ADMIN_SERVICE}/trips/${tripId}/days/${dayId}`, undefined, { loading: false }).then(() => undefined);
+// 上傳或更換每日行程照片
+export const uploadAdminTripDayPhoto = (tripId: number, dayId: number, file: File): Promise<void> => {
+  const formData = new FormData();
 
+  formData.append("file", file);
+
+  return http
+    .postDirect<void>(`${ADMIN_SERVICE}/trips/${tripId}/days/${dayId}/photo`, formData, {
+      loading: false,
+      cancel: false
+    })
+    .then(() => undefined);
+};
+
+// 取得每日行程照片
+export const getAdminTripDayPhoto = (tripId: number, dayId: number) =>
+  http.getDirect<Blob>(`${ADMIN_SERVICE}/trips/${tripId}/days/${dayId}/photo`, undefined, {
+    loading: false,
+    responseType: "blob",
+    suppressErrorMessage: true
+  });
+
+// 刪除每日行程照片
+export const deleteAdminTripDayPhoto = (tripId: number, dayId: number): Promise<void> =>
+  http
+    .delete(`${ADMIN_SERVICE}/trips/${tripId}/days/${dayId}/photo`, undefined, {
+      loading: false
+    })
+    .then(() => undefined);
 export const createAdminTripSpot = (tripId: number, tripDayId: number, params: AdminTrip.TripSpotRequest) =>
   http.postDirect<AdminTrip.TripSpotResponse>(
     `${ADMIN_SERVICE}/trips/${tripId}/days/${tripDayId}/spots`,
@@ -213,3 +241,9 @@ export const getAdminTripDepartures = (tripId: number) =>
   http.getDirect<AdminTrip.TripDepartureResponse[]>(`${ADMIN_SERVICE}/trips/${tripId}/departures`, undefined, {
     loading: false
   });
+export const deleteAdminTripDeparture = (tripId: number, departureId: number): Promise<void> =>
+  http
+    .delete(`${ADMIN_SERVICE}/trips/${tripId}/departures/${departureId}`, undefined, {
+      loading: false
+    })
+    .then(() => undefined);

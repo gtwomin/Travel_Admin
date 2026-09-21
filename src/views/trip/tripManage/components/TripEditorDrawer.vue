@@ -157,6 +157,7 @@
           v-else-if="currentStep === 3 && isPersisted"
           :trip-id="persistedTripId"
           :booking-mode="form.bookingMode"
+          :duration-days="form.durationDays"
           @busy-change="handleDepartureBusyChange"
           @changed="handleDepartureChanged"
         />
