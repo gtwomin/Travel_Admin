@@ -13,6 +13,20 @@ const modules = import.meta.glob("@/views/**/*.vue");
 
 const DYNAMIC_ROUTE_CATALOG: Menu.MenuOptions[] = [
   {
+    path: "/orders",
+    name: "orderManage",
+    component: "/order/orderManage/index",
+    meta: {
+      icon: "Tickets",
+      title: "訂單管理",
+      isHide: false,
+      isFull: false,
+      isAffix: false,
+      isKeepAlive: true,
+      requiredPermission: "ADMIN_ORDER_LIST_READ"
+    }
+  },
+  {
     path: "/system",
     name: "system",
     redirect: "/system/accountManage",
@@ -121,6 +135,34 @@ const DYNAMIC_ROUTE_CATALOG: Menu.MenuOptions[] = [
           isAffix: false,
           isKeepAlive: true,
           requiredPermission: "ADMIN_ORDER_LIST_READ"
+        }
+      }
+    ]
+  },
+  {
+    path: "/trip",
+    name: "trip",
+    redirect: "/trip/tripManage",
+    meta: {
+      icon: "MapLocation",
+      title: "行程管理",
+      isHide: false,
+      isFull: false,
+      isAffix: false,
+      isKeepAlive: false
+    },
+    children: [
+      {
+        path: "/trip/tripManage",
+        name: "tripManage",
+        component: "/trip/tripManage/index",
+        meta: {
+          icon: "Guide",
+          title: "行程列表",
+          isHide: false,
+          isFull: false,
+          isAffix: false,
+          isKeepAlive: true
         }
       }
     ]
