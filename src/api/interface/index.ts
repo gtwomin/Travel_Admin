@@ -147,6 +147,8 @@ export namespace AdminOrder {
   export type OrderStatus =
     "PENDING_PAYMENT" | "PAID" | "CONFIRMED" | "CANCELLATION_REQUESTED" | "CANCELLED" | "COMPLETED" | "EXPIRED";
 
+  export type CancellationStatus = "PENDING" | "APPROVED" | "REJECTED" | "REFUNDING" | "REFUNDED" | "REFUND_FAILED";
+
   export type AdminOrderSortField = "createdAt" | "departureAt" | "totalAmount";
   export type AdminOrderSortOrder = "asc" | "desc";
 
@@ -202,6 +204,35 @@ export namespace AdminOrder {
     paidAt: string | null;
   }
 
+  export interface AdminOrderPendingCancellation {
+    cancellationId: number;
+    status: CancellationStatus;
+    reason: string;
+    requestedAt: string;
+  }
+
+  export interface AdminOrderCancellationResponse {
+    id: number;
+    orderId: number;
+    orderNumber: string;
+    reason: string;
+    status: CancellationStatus;
+    adminNote: string | null;
+    refundAmount: number | string | null;
+    refundId: number | null;
+    requestedAt: string;
+    reviewedAt: string | null;
+    updatedAt: string;
+  }
+
+  export interface AdminCancellationApproveParams {
+    adminNote: string | null;
+  }
+
+  export interface AdminCancellationRejectParams {
+    adminNote: string;
+  }
+
   export interface AdminOrderSummaryResponse {
     orderId: number;
     orderNumber: string;
@@ -229,6 +260,7 @@ export namespace AdminOrder {
     contact: AdminOrderContact;
     items: AdminOrderDetailItem[];
     payments: AdminOrderPayment[];
+    pendingCancellation: AdminOrderPendingCancellation | null;
   }
 
   export type AdminOrderPageResponse = ResPage<AdminOrderSummaryResponse>;

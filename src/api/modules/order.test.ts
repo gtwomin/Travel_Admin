@@ -1,19 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const api = vi.hoisted(() => ({
-  getDirect: vi.fn()
+  getDirect: vi.fn(),
+  patchDirect: vi.fn()
 }));
 
 vi.mock("@/api", () => ({ default: api }));
 vi.mock("@/api/config/servicePort", () => ({ ADMIN_SERVICE: "/api/v1/admin" }));
 
 import { AdminOrder } from "@/api/interface";
-import { getAdminOrderDetail, getAdminOrderPage } from "@/api/modules/order";
+import {
+  approveAdminOrderCancellation,
+  getAdminOrderDetail,
+  getAdminOrderPage,
+  rejectAdminOrderCancellation
+} from "@/api/modules/order";
 
 describe("訂單管理 API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     api.getDirect.mockResolvedValue({ list: [], total: 0, pageNum: 1, pageSize: 10 });
+    api.patchDirect.mockResolvedValue(undefined);
   });
 
   it("應使用正式訂單列表 endpoint 並保留 ProTable 分頁回應 adapter", async () => {
@@ -97,8 +104,8 @@ describe("訂單管理 API", () => {
     const detail: AdminOrder.AdminOrderDetailResponse = {
       orderId: 7,
       orderNumber: "ORD-20260919-0007",
-      orderStatus: "CONFIRMED",
-      displayStatus: "UPCOMING",
+      orderStatus: "CANCELLATION_REQUESTED",
+      displayStatus: "CANCELLATION_IN_PROGRESS",
       totalAmount: 25800,
       createdAt: "2026-09-19T01:20:00Z",
       member: {
@@ -175,7 +182,13 @@ describe("訂單管理 API", () => {
           createdAt: "2026-09-19T01:40:00Z",
           paidAt: null
         }
-      ]
+      ],
+      pendingCancellation: {
+        cancellationId: 8,
+        status: "PENDING",
+        reason: "臨時無法參加行程",
+        requestedAt: "2026-09-19T02:00:00Z"
+      }
     };
     api.getDirect.mockResolvedValueOnce(detail);
 
@@ -185,5 +198,44 @@ describe("訂單管理 API", () => {
     expect(detail.items).toHaveLength(2);
     expect(detail.payments).toHaveLength(3);
     expect(detail.payments.map(payment => payment.status)).toEqual(["FAILED", "PAID", "PENDING"]);
+    expect(detail.pendingCancellation).toEqual({
+      cancellationId: 8,
+      status: "PENDING",
+      reason: "臨時無法參加行程",
+      requestedAt: "2026-09-19T02:00:00Z"
+    });
+  });
+
+  it("應以可選審核說明呼叫核准取消 API", async () => {
+    const response = { id: 8, status: "APPROVED" };
+    api.patchDirect.mockResolvedValueOnce(response);
+
+    await expect(approveAdminOrderCancellation(8, { adminNote: null })).resolves.toBe(response);
+
+    expect(api.patchDirect).toHaveBeenCalledWith(
+      "/api/v1/admin/order-cancellations/8/approve",
+      { adminNote: null },
+      { loading: false }
+    );
+  });
+
+  it("應以必填審核說明呼叫拒絕取消 API", async () => {
+    const response = { id: 8, status: "REJECTED" };
+    api.patchDirect.mockResolvedValueOnce(response);
+
+    await expect(rejectAdminOrderCancellation(8, { adminNote: "拒絕原因" })).resolves.toBe(response);
+
+    expect(api.patchDirect).toHaveBeenCalledWith(
+      "/api/v1/admin/order-cancellations/8/reject",
+      { adminNote: "拒絕原因" },
+      { loading: false }
+    );
+  });
+
+  it("409 應保留取消審核 API rejection 供 Drawer 處理 stale state", async () => {
+    const error = { response: { status: 409 } };
+    api.patchDirect.mockRejectedValueOnce(error);
+
+    await expect(approveAdminOrderCancellation(8, { adminNote: null })).rejects.toBe(error);
   });
 });

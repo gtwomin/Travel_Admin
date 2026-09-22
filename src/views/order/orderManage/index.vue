@@ -17,7 +17,7 @@
       :default-sort="{ prop: 'createdAt', order: 'descending' }"
       :search-col="{ xs: 1, sm: 2, md: 2, lg: 3, xl: 4 }"
     />
-    <OrderDrawer ref="drawerRef" />
+    <OrderDrawer ref="drawerRef" @reviewed="refreshOrderTable" />
   </div>
 </template>
 
@@ -53,12 +53,12 @@ const memberScopedUserId = computed(() => {
   return normalizedUserId || undefined;
 });
 
-const businessStatusOptions: Array<{
+const businessStatusPresentationOptions: Array<{
   label: string;
   value: AdminOrder.AdminOrderBusinessStatus;
   tagType: TagType;
 }> = [
-  { label: "待付款", value: "PENDING_PAYMENT", tagType: "warning" },
+  { label: "付款未完成", value: "PENDING_PAYMENT", tagType: "warning" },
   { label: "待出發", value: "UPCOMING", tagType: "primary" },
   { label: "進行中", value: "IN_PROGRESS", tagType: "success" },
   { label: "已完成", value: "COMPLETED", tagType: "success" },
@@ -68,12 +68,16 @@ const businessStatusOptions: Array<{
   { label: "取消處理中", value: "CANCELLATION_IN_PROGRESS", tagType: "warning" }
 ];
 
-const paymentStatusOptions: Array<{
+const businessStatusFilterOptions = businessStatusPresentationOptions.filter(
+  option => !["EXPIRED", "PAID_PENDING_CONFIRMATION"].includes(option.value)
+);
+
+const paymentStatusPresentationOptions: Array<{
   label: string;
   value: AdminOrder.PaymentStatus;
   tagType: TagType;
 }> = [
-  { label: "待付款", value: "PENDING", tagType: "warning" },
+  { label: "付款處理中", value: "PENDING", tagType: "warning" },
   { label: "已付款", value: "PAID", tagType: "success" },
   { label: "付款失敗", value: "FAILED", tagType: "danger" },
   { label: "已取消", value: "CANCELLED", tagType: "info" },
@@ -81,11 +85,15 @@ const paymentStatusOptions: Array<{
   { label: "部分退款", value: "PARTIALLY_REFUNDED", tagType: "warning" }
 ];
 
+const paymentStatusFilterOptions = paymentStatusPresentationOptions.filter(
+  option => !["REFUNDED", "PARTIALLY_REFUNDED"].includes(option.value)
+);
+
 const getBusinessStatusOption = (status: AdminOrder.AdminOrderBusinessStatus) =>
-  businessStatusOptions.find(option => option.value === status);
+  businessStatusPresentationOptions.find(option => option.value === status);
 
 const getPaymentStatusOption = (status: AdminOrder.PaymentStatus | null) =>
-  status ? paymentStatusOptions.find(option => option.value === status) : undefined;
+  status ? paymentStatusPresentationOptions.find(option => option.value === status) : undefined;
 
 const formatCurrency = (value: number | string | null | undefined) => {
   if (value === null || value === undefined || value === "") return "—";
@@ -115,6 +123,10 @@ const clearMemberScope = () => {
     name: "orderManage",
     query
   });
+};
+
+const refreshOrderTable = () => {
+  void proTable.value?.getTableList();
 };
 
 const openDetail = async (row: AdminOrder.AdminOrderSummaryResponse) => {
@@ -180,7 +192,7 @@ const columns = reactive<ColumnProps<AdminOrder.AdminOrderSummaryResponse>[]>([
     prop: "displayStatus",
     label: "訂單狀態",
     width: 150,
-    enum: businessStatusOptions,
+    enum: businessStatusFilterOptions,
     search: { el: "select", key: "status", label: "訂單狀態", props: { placeholder: "全部" } },
     render: ({ row }) => {
       const option = getBusinessStatusOption(row.displayStatus);
@@ -191,7 +203,7 @@ const columns = reactive<ColumnProps<AdminOrder.AdminOrderSummaryResponse>[]>([
     prop: "paymentStatus",
     label: "付款狀態",
     width: 140,
-    enum: paymentStatusOptions,
+    enum: paymentStatusFilterOptions,
     search: { el: "select", label: "付款狀態", props: { placeholder: "全部" } },
     render: ({ row }) => {
       const option = getPaymentStatusOption(row.paymentStatus);

@@ -35,3 +35,17 @@ export const getAdminOrderPage = (params: AdminOrder.AdminOrderPageParams) => {
 
 export const getAdminOrderDetail = (orderId: number) =>
   http.getDirect<AdminOrder.AdminOrderDetailResponse>(`${ADMIN_SERVICE}/orders/${orderId}`, {}, { loading: false });
+
+export const approveAdminOrderCancellation = (cancellationId: number, params: AdminOrder.AdminCancellationApproveParams) =>
+  http.patchDirect<AdminOrder.AdminOrderCancellationResponse>(
+    `${ADMIN_SERVICE}/order-cancellations/${cancellationId}/approve`,
+    params,
+    { loading: false }
+  );
+
+export const rejectAdminOrderCancellation = (cancellationId: number, params: AdminOrder.AdminCancellationRejectParams) =>
+  http.patchDirect<AdminOrder.AdminOrderCancellationResponse>(
+    `${ADMIN_SERVICE}/order-cancellations/${cancellationId}/reject`,
+    params,
+    { loading: false }
+  );
