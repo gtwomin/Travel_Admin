@@ -18,11 +18,19 @@
       </div>
     </div>
 
-    <div v-if="loading && days.length === 0" class="day-state" role="status">正在載入每日行程…</div>
-    <div v-else-if="loadError" class="day-state day-state-error" role="alert">
-      <p>每日行程載入失敗，請稍後再試。</p>
-      <el-button type="primary" plain :disabled="isBusy" @click="loadDays(true)">重新載入</el-button>
-    </div>
+    <el-skeleton v-if="loading && days.length === 0" class="day-skeleton" :rows="8" animated aria-label="正在載入每日行程" />
+    <el-alert
+      v-else-if="loadError"
+      class="day-alert"
+      title="每日行程載入失敗，請稍後再試。"
+      type="error"
+      :closable="false"
+      show-icon
+    >
+      <template #default>
+        <el-button type="primary" plain :disabled="isBusy" @click="loadDays(true)">重新載入</el-button>
+      </template>
+    </el-alert>
     <el-empty v-else-if="days.length === 0" description="尚未建立每日行程" />
 
     <el-collapse v-else v-model="expandedDays" class="day-list">
@@ -44,7 +52,7 @@
             <span v-else class="day-thumbnail day-thumbnail-empty" aria-hidden="true">
               <el-icon><Picture /></el-icon>
             </span>
-            <span class="day-number-label">DAY {{ day.dayNumber }}</span>
+            <el-tag class="day-number-label" type="primary" effect="plain" size="small">第 {{ day.dayNumber }} 天</el-tag>
             <span class="day-title">{{ day.title || "尚未命名" }}</span>
           </div>
         </template>
@@ -607,10 +615,10 @@ onBeforeUnmount(() => {
 .day-section-header {
   gap: 16px;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 16px;
 }
 .day-section-header h3 {
-  margin: 0 0 8px;
+  margin: 0 0 4px;
   font-size: var(--el-font-size-large);
   color: var(--el-text-color-primary);
 }
@@ -624,32 +632,24 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   gap: 8px;
 }
-.day-state {
-  display: grid;
-  gap: 16px;
-  justify-items: center;
-  min-height: 220px;
-  padding: 48px 24px;
-  color: var(--el-text-color-secondary);
-  text-align: center;
+.day-skeleton {
+  padding: 8px 0 16px;
 }
-.day-state p {
-  margin: 0;
-}
-.day-state-error {
-  color: var(--el-color-danger);
+.day-alert {
+  margin-bottom: 16px;
 }
 .day-list {
   display: grid;
   gap: 16px;
-  margin-top: 24px;
+  margin-top: 16px;
   border: none;
 }
 .day-card {
   overflow: hidden;
   background: var(--el-bg-color);
   border: 1px solid var(--el-border-color-light);
-  border-radius: 10px;
+  border-radius: var(--el-border-radius-base);
+  box-shadow: var(--el-box-shadow-lighter);
 }
 .day-card.is-dirty {
   border-color: var(--el-color-warning-light-5);
@@ -671,7 +671,7 @@ onBeforeUnmount(() => {
 .day-heading {
   display: flex;
   flex: 1;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
   padding-right: 12px;
   text-align: left;
@@ -684,10 +684,10 @@ onBeforeUnmount(() => {
 }
 .day-thumbnail {
   flex-shrink: 0;
-  width: 112px;
-  height: 72px;
+  width: 80px;
+  height: 52px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: var(--el-border-radius-small);
 }
 .day-thumbnail-empty {
   display: grid;
@@ -704,17 +704,9 @@ onBeforeUnmount(() => {
 }
 .day-number-label {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  min-width: 68px;
-  min-height: 36px;
-  padding: 0 10px;
-  font-size: var(--el-font-size-small);
-  font-weight: 700;
-  color: var(--el-color-primary);
-  letter-spacing: 0.04em;
-  background: var(--el-color-primary-light-9);
-  border-radius: var(--el-border-radius-base);
 }
 .day-card-header-actions {
   gap: 8px;
@@ -752,7 +744,7 @@ onBeforeUnmount(() => {
 @media (width <= 768px) {
   .day-thumbnail {
     width: 72px;
-    height: 56px;
+    height: 48px;
   }
   .day-heading {
     flex-wrap: wrap;

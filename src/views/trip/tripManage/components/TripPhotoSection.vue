@@ -29,11 +29,19 @@
 
     <p class="photo-upload-hint">支援瀏覽器可辨識的圖片格式，第一張圖片會顯示為封面。</p>
 
-    <div v-if="loading" class="photo-state" role="status">正在載入行程圖片…</div>
-    <div v-else-if="loadError" class="photo-state photo-state-error" role="alert">
-      <p>行程圖片載入失敗，請稍後再試。</p>
-      <el-button type="primary" plain :disabled="isBusy" @click="loadPhotos">重新載入</el-button>
-    </div>
+    <el-skeleton v-if="loading" class="photo-skeleton" :rows="6" animated aria-label="正在載入行程圖片" />
+    <el-alert
+      v-else-if="loadError"
+      class="photo-alert"
+      title="行程圖片載入失敗，請稍後再試。"
+      type="error"
+      :closable="false"
+      show-icon
+    >
+      <template #default>
+        <el-button type="primary" plain :disabled="isBusy" @click="loadPhotos">重新載入</el-button>
+      </template>
+    </el-alert>
     <el-empty v-else-if="photos.length === 0" description="尚未上傳行程圖片" />
 
     <draggable
@@ -70,13 +78,15 @@
           </div>
 
           <div class="photo-card-footer">
-            <span class="photo-drag-handle" tabindex="0" title="拖曳調整順序" aria-label="拖曳調整順序"> ⋮⋮ </span>
-            <el-button v-if="index !== 0" text type="primary" size="small" :disabled="isBusy" @click="setCover(element)">
+            <span class="photo-drag-handle" tabindex="0" title="拖曳調整順序" aria-label="拖曳調整順序">
+              <el-icon aria-hidden="true"><DCaret /></el-icon>
+            </span>
+            <el-button v-if="index !== 0" link type="primary" size="small" :disabled="isBusy" @click="setCover(element)">
               設為封面
             </el-button>
             <el-tag v-else type="success" effect="plain" size="small">封面</el-tag>
             <el-button
-              text
+              link
               type="danger"
               size="small"
               :loading="deletingPhotoId === element.id"
@@ -94,7 +104,7 @@
 </template>
 
 <script setup lang="ts" name="TripPhotoSection">
-import { Delete, Refresh, Upload } from "@element-plus/icons-vue";
+import { DCaret, Delete, Refresh, Upload } from "@element-plus/icons-vue";
 import type { UploadProps } from "element-plus";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
@@ -368,7 +378,7 @@ onBeforeUnmount(() => {
 .photo-section-header {
   gap: 16px;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 .photo-section-header h3 {
   margin: 0 0 8px;
@@ -393,32 +403,24 @@ onBeforeUnmount(() => {
   margin-top: 8px;
   font-size: var(--el-font-size-small);
 }
-.photo-state {
-  display: grid;
-  gap: 16px;
-  justify-items: center;
-  min-height: 220px;
-  padding: 48px 24px;
-  color: var(--el-text-color-secondary);
-  text-align: center;
+.photo-skeleton {
+  padding: 8px 0 16px;
 }
-.photo-state p {
-  margin: 0;
-}
-.photo-state-error {
-  color: var(--el-color-danger);
+.photo-alert {
+  margin-bottom: 16px;
 }
 .photo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 16px;
-  margin-top: 24px;
+  margin-top: 16px;
 }
 .photo-card {
   overflow: hidden;
   background: var(--el-bg-color);
   border: 1px solid var(--el-border-color);
   border-radius: var(--el-border-radius-base);
+  box-shadow: var(--el-box-shadow-lighter);
   transition:
     border-color var(--el-transition-duration-fast),
     box-shadow var(--el-transition-duration-fast);
@@ -465,7 +467,7 @@ onBeforeUnmount(() => {
   padding: 3px 7px;
   font-size: var(--el-font-size-extra-small);
   color: var(--el-color-white);
-  background: rgb(0 0 0 / 55%);
+  background: var(--el-overlay-color-lighter);
   border-radius: var(--el-border-radius-small);
 }
 .photo-card-footer {
@@ -474,14 +476,18 @@ onBeforeUnmount(() => {
   padding: 8px 10px;
 }
 .photo-drag-handle {
+  display: inline-flex;
   flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
   padding: 4px 2px;
-  font-size: var(--el-font-size-large);
   line-height: 1;
   color: var(--el-text-color-secondary);
-  letter-spacing: -4px;
   cursor: grab;
   outline: none;
+}
+.photo-drag-handle .el-icon {
+  font-size: var(--el-font-size-large);
 }
 .photo-drag-handle:focus-visible {
   border-radius: var(--el-border-radius-small);

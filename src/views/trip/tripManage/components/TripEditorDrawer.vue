@@ -20,11 +20,21 @@
         <el-step title="預覽與上架" />
       </el-steps>
 
-      <div v-if="loading" class="editor-state" role="status">正在載入行程資料…</div>
-      <div v-else-if="loadError" class="editor-state editor-state-error" role="alert">
-        <p>行程資料載入失敗，尚未填入任何資料。</p>
-        <el-button type="primary" plain @click="retryEdit">重新載入</el-button>
-      </div>
+      <el-skeleton v-if="loading" class="editor-skeleton" :rows="10" animated aria-label="正在載入行程資料" />
+      <el-alert
+        v-else-if="loadError"
+        class="editor-alert"
+        title="行程資料載入失敗，尚未填入任何資料。"
+        type="error"
+        :closable="false"
+        show-icon
+      >
+        <template #default>
+          <div class="editor-alert-action">
+            <el-button type="primary" plain @click="retryEdit">重新載入</el-button>
+          </div>
+        </template>
+      </el-alert>
 
       <div v-else class="trip-editor-step-panel">
         <el-form
@@ -138,7 +148,7 @@
         <section v-else-if="currentStep === 1" class="placeholder-step" aria-labelledby="trip-editor-photo-title">
           <el-tag type="info">尚未建立行程</el-tag>
           <h3 id="trip-editor-photo-title">行程圖片</h3>
-          <p>請先完成基本資料，建立行程後才能管理圖片。</p>
+          <el-empty description="請先完成基本資料，建立行程後才能管理圖片。" />
         </section>
         <TripDaySection
           v-else-if="currentStep === 2 && isPersisted"
@@ -151,7 +161,7 @@
         <section v-else-if="currentStep === 2" class="placeholder-step" aria-labelledby="trip-editor-day-title">
           <el-tag type="info">後續階段開放</el-tag>
           <h3 id="trip-editor-day-title">每日行程</h3>
-          <p>每日行程與景點編排將於後續階段開放。</p>
+          <el-empty description="每日行程與景點編排將於後續階段開放。" />
         </section>
         <TripDepartureSection
           v-else-if="currentStep === 3 && isPersisted"
@@ -165,7 +175,7 @@
         <section v-else-if="currentStep === 3" class="placeholder-step">
           <el-tag type="info">尚未建立行程</el-tag>
           <h3>出發梯次</h3>
-          <p>請先建立行程，才能新增出發梯次。</p>
+          <el-empty description="請先建立行程，才能新增出發梯次。" />
         </section>
         <TripPreviewSection
           v-else-if="currentStep === 4 && isPersisted"
@@ -710,12 +720,15 @@ defineExpose({ openCreate, openEdit });
 }
 .trip-editor-content {
   min-height: 100%;
+  padding: 4px 0;
 }
 .trip-editor-steps {
-  margin-bottom: 28px;
+  padding: 0 4px 4px;
+  margin-bottom: 24px;
 }
 .trip-editor-step-panel {
   max-width: 960px;
+  padding: 0 4px 8px;
   margin: 0 auto;
 }
 .trip-form {
@@ -760,25 +773,18 @@ defineExpose({ openCreate, openEdit });
   font-size: var(--el-font-size-large);
   color: var(--el-text-color-primary);
 }
-.placeholder-step p {
-  margin: 0;
-  line-height: 1.6;
-  color: var(--el-text-color-secondary);
+.placeholder-step :deep(.el-empty) {
+  width: 100%;
+  padding: 16px 0 0;
 }
-.editor-state {
-  display: grid;
-  gap: 16px;
-  justify-items: center;
-  min-height: 280px;
-  padding: 48px 24px;
-  color: var(--el-text-color-secondary);
-  text-align: center;
+.editor-skeleton {
+  padding: 8px 4px 24px;
 }
-.editor-state p {
-  margin: 0;
+.editor-alert {
+  margin: 0 4px 24px;
 }
-.editor-state-error {
-  color: var(--el-color-danger);
+.editor-alert-action {
+  margin-top: 12px;
 }
 .trip-editor-footer {
   display: flex;
@@ -787,7 +793,12 @@ defineExpose({ openCreate, openEdit });
 }
 .trip-editor-footer-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+  justify-content: flex-end;
+}
+.trip-editor-footer-actions .el-button {
+  margin-left: 0;
 }
 
 @media (width <= 768px) {

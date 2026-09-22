@@ -62,7 +62,7 @@
       </template>
     </el-dialog>
 
-    <div v-if="loading" class="state-box">正在載入出發梯次……</div>
+    <el-skeleton v-if="loading" class="departure-skeleton" :rows="5" animated aria-label="正在載入出發梯次" />
 
     <el-empty v-else-if="departures.length === 0" description="目前尚未建立出發梯次" />
 
@@ -270,7 +270,7 @@ onMounted(() => {
 <style scoped lang="scss">
 .departure-section {
   display: grid;
-  gap: 20px;
+  gap: 16px;
 }
 .section-header {
   display: flex;
@@ -279,7 +279,8 @@ onMounted(() => {
   justify-content: space-between;
 }
 .section-header h3 {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
+  font-size: var(--el-font-size-large);
   color: var(--el-text-color-primary);
 }
 .section-header p {
@@ -290,10 +291,7 @@ onMounted(() => {
 .full-width {
   width: 100%;
 }
-.state-box {
-  display: grid;
-  place-items: center;
-  min-height: 180px;
-  color: var(--el-text-color-secondary);
+.departure-skeleton {
+  padding: 8px 0 16px;
 }
 </style>
