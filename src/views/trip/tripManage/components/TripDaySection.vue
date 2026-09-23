@@ -44,10 +44,10 @@
         <template #title>
           <div class="day-heading">
             <img
-              v-if="dayPhotos[day.key]"
+              v-if="getFirstSpotPhoto(day)"
               class="day-thumbnail"
-              :src="dayPhotos[day.key].url"
-              :alt="`第 ${day.dayNumber} 天照片`"
+              :src="getFirstSpotPhoto(day)"
+              :alt="`第 ${day.dayNumber} 天第一個景點照片`"
             />
             <span v-else class="day-thumbnail day-thumbnail-empty" aria-hidden="true">
               <el-icon><Picture /></el-icon>
@@ -70,36 +70,6 @@
           label-position="top"
           @submit.prevent
         >
-          <el-form-item label="當日照片（最多一張）">
-            <div class="day-photo-editor">
-              <UploadImg
-                :key="dayPhotos[day.key]?.url || day.key"
-                :image-url="dayPhotos[day.key]?.url || ''"
-                defer-upload
-                :file-size="5"
-                :file-type="['image/jpeg', 'image/png', 'image/webp']"
-                width="100%"
-                height="200px"
-                @update:file="file => setDayPhoto(day.key, file)"
-              >
-                <template #empty>
-                  <el-icon><Plus /></el-icon>
-                  <span>選擇當日照片</span>
-                </template>
-                <template #tip>JPG、PNG、WebP，每張最多 5 MB；重新選擇會取代原照片。</template>
-              </UploadImg>
-              <el-button v-if="dayPhotos[day.key]" type="danger" plain :disabled="isBusy" @click="removeDayPhoto(day)">
-                刪除照片
-              </el-button>
-              <el-alert
-                title="照片會與這一天一起儲存"
-                description="每一天最多一張照片，重新選擇照片會取代原本照片。"
-                type="info"
-                :closable="false"
-                show-icon
-              />
-            </div>
-          </el-form-item>
           <div class="day-form-grid day-form-grid-primary">
             <el-form-item label="第幾天">
               <el-input :model-value="`第 ${day.dayNumber} 天`" readonly />
@@ -360,21 +330,14 @@ import UploadImg from "@/components/Upload/Img.vue";
 import {
   createAdminTripDay,
   createAdminTripSpot,
-  deleteAdminTripDayPhoto,
-  getAdminTripDayPhoto,
+  deleteAdminTripSpot,
   getAdminTripDays,
+  getAdminTripSpotPhoto,
   getAdminTripSpots,
   updateAdminTripDay,
-  uploadAdminTripSpotPhoto,
-  uploadAdminTripDayPhoto,
-  deleteAdminTripSpot,
-  updateAdminTripSpot
+  updateAdminTripSpot,
+  uploadAdminTripSpotPhoto
 } from "@/api/modules/trip";
-interface DayPhotoState {
-  file: File | null;
-  url: string;
-  persisted: boolean;
-}
 interface EditableTripDay {
   key: string;
   id: number | null;
@@ -404,12 +367,12 @@ const emit = defineEmits<{
 
 const days = ref<EditableTripDay[]>([]);
 const expandedDays = ref<string[]>([]);
-const dayPhotos = ref<Record<string, DayPhotoState>>({});
 const spotDialogVisible = ref(false);
 const spotSaving = ref(false);
 const spotPhotoFile = ref<File | null>(null);
 
 const spotPhotoPreview = ref("");
+const spotObjectUrls = new Map<number, string>();
 
 const selectedSpotDay = ref<EditableTripDay | null>(null);
 const editingSpot = ref<AdminTrip.TripSpotResponse | null>(null);
@@ -467,88 +430,6 @@ const spotTagOptions: Array<{
     value: "FREE_TIME"
   }
 ];
-// 只清除瀏覽器中的照片預覽
-const clearDayPhotoPreview = (key: string) => {
-  const photo = dayPhotos.value[key];
-
-  if (photo?.url) {
-    URL.revokeObjectURL(photo.url);
-  }
-
-  delete dayPhotos.value[key];
-};
-
-// 管理者重新選擇照片
-const setDayPhoto = (key: string, file: File | null) => {
-  clearDayPhotoPreview(key);
-
-  if (!file) {
-    return;
-  }
-
-  dayPhotos.value[key] = {
-    file,
-    url: URL.createObjectURL(file),
-    persisted: false
-  };
-};
-
-// 從後端載入已儲存的每日照片
-const loadDayPhoto = async (day: EditableTripDay) => {
-  const dayId = day.id;
-
-  // 新增但尚未儲存的每日行程還沒有 ID
-  if (dayId === null) {
-    return;
-  }
-
-  // 已有預覽就不要重複載入
-  if (dayPhotos.value[day.key]) {
-    return;
-  }
-
-  try {
-    const blob = await getAdminTripDayPhoto(props.tripId, dayId);
-
-    if (!(blob instanceof Blob) || blob.size === 0) {
-      return;
-    }
-
-    clearDayPhotoPreview(day.key);
-
-    dayPhotos.value[day.key] = {
-      file: null,
-      url: URL.createObjectURL(blob),
-      persisted: true
-    };
-  } catch {
-    // 404 代表這一天尚未上傳照片
-  }
-};
-
-// 刪除照片
-const removeDayPhoto = async (day: EditableTripDay) => {
-  const photo = dayPhotos.value[day.key];
-
-  if (!photo) {
-    return;
-  }
-
-  // 新選擇但尚未上傳的照片，直接清除預覽
-  if (!photo.persisted || day.id === null) {
-    clearDayPhotoPreview(day.key);
-    return;
-  }
-
-  try {
-    await deleteAdminTripDayPhoto(props.tripId, day.id);
-
-    clearDayPhotoPreview(day.key);
-    ElMessage.success("每日行程照片已刪除");
-  } catch {
-    // 錯誤訊息交給全域 API 攔截器顯示
-  }
-};
 const loading = ref(false);
 const loadError = ref(false);
 const savingKey = ref<string | null>(null);
@@ -562,14 +443,11 @@ let disposed = false;
 const isBusy = computed(() => loading.value || savingKey.value !== null);
 const isDayDirty = (day: EditableTripDay) => {
   const snapshot = persistedSnapshots.get(day.key);
-
-  const textDirty = snapshot ? serializeDay(day) !== serializeDay(snapshot) : true;
-
-  const photoDirty = dayPhotos.value[day.key]?.file != null;
-
-  return textDirty || photoDirty;
+  return snapshot ? serializeDay(day) !== serializeDay(snapshot) : true;
 };
 const hasUnsavedChanges = computed(() => days.value.some(day => isDayDirty(day)));
+
+const getFirstSpotPhoto = (day: EditableTripDay) => day.spots.find(spot => Boolean(spot.imageUrl))?.imageUrl ?? "";
 
 const optionalText = (value: string) => value.trim() || null;
 
@@ -664,7 +542,7 @@ const resetSpotForm = () => {
   clearSpotPhoto();
 };
 const clearSpotPhoto = () => {
-  if (spotPhotoPreview.value) {
+  if (spotPhotoFile.value && spotPhotoPreview.value.startsWith("blob:")) {
     URL.revokeObjectURL(spotPhotoPreview.value);
   }
 
@@ -830,8 +708,32 @@ const loadDaySpots = async (day: EditableTripDay) => {
 
   try {
     const response = await getAdminTripSpots(props.tripId, day.id);
+    const spots = (Array.isArray(response) ? response : []).sort((left, right) => left.sortOrder - right.sortOrder);
 
-    day.spots = (Array.isArray(response) ? response : []).sort((left, right) => left.sortOrder - right.sortOrder);
+    day.spots.forEach(spot => {
+      const objectUrl = spotObjectUrls.get(spot.id);
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+        spotObjectUrls.delete(spot.id);
+      }
+    });
+
+    day.spots = await Promise.all(
+      spots.map(async spot => {
+        if (!spot.imageUrl) return spot;
+
+        try {
+          const blob = await getAdminTripSpotPhoto(props.tripId, day.id as number, spot.id);
+          if (!(blob instanceof Blob) || blob.size === 0) return { ...spot, imageUrl: null };
+
+          const objectUrl = URL.createObjectURL(blob);
+          spotObjectUrls.set(spot.id, objectUrl);
+          return { ...spot, imageUrl: objectUrl };
+        } catch {
+          return { ...spot, imageUrl: null };
+        }
+      })
+    );
   } catch {
     day.spots = [];
   }
@@ -924,9 +826,6 @@ const loadDays = async (preserveDrafts = false) => {
 
     expandedDays.value = expandedDays.value.filter(key => nextDays.some(day => day.key === key));
 
-    // 載入每一天已儲存的照片
-    await Promise.all(days.value.filter(day => day.id !== null).map(day => loadDayPhoto(day)));
-
     // 載入每一天的景點
     await Promise.all(days.value.filter(day => day.id !== null).map(day => loadDaySpots(day)));
 
@@ -981,13 +880,6 @@ const saveDay = async (day: EditableTripDay) => {
       day.id = saved.id;
       day.key = `day-${saved.id}`;
 
-      // 將新行程原本選擇的照片搬到正式 key
-      if (dayPhotos.value[oldKey]) {
-        dayPhotos.value[day.key] = dayPhotos.value[oldKey];
-
-        delete dayPhotos.value[oldKey];
-      }
-
       expandedDays.value = expandedDays.value.map(key => (key === oldKey ? day.key : key));
     } else {
       // 修改既有每日行程文字資料
@@ -998,20 +890,9 @@ const saveDay = async (day: EditableTripDay) => {
       throw new Error("每日行程儲存後沒有取得 ID");
     }
 
-    const photo = dayPhotos.value[day.key];
-
-    // 有新選擇照片才執行上傳
-    if (photo?.file) {
-      await uploadAdminTripDayPhoto(props.tripId, day.id, photo.file);
-
-      // 保留目前預覽，但標記為已儲存
-      photo.file = null;
-      photo.persisted = true;
-    }
-
     persistedSnapshots.set(day.key, cloneDay(day));
 
-    await refreshAfterMutation("每日行程與照片儲存成功");
+    await refreshAfterMutation("每日行程儲存成功");
   } catch {
     // API 錯誤訊息由全域攔截器顯示
   } finally {
@@ -1023,14 +904,12 @@ const discardChanges = (day: EditableTripDay) => {
   if (day.id === null) {
     days.value = days.value.filter(item => item.key !== day.key);
     persistedSnapshots.delete(day.key);
-    clearDayPhotoPreview(day.key);
     expandedDays.value = expandedDays.value.filter(key => key !== day.key);
     return;
   }
 
   const snapshot = persistedSnapshots.get(day.key);
   if (!snapshot) return;
-  clearDayPhotoPreview(day.key);
   Object.assign(day, cloneDay(snapshot));
   dayFormRefs.get(day.key)?.clearValidate();
 };
@@ -1042,14 +921,17 @@ watch(
   () => props.tripId,
   () => {
     expandedDays.value = [];
-    Object.keys(dayPhotos.value).forEach(clearDayPhotoPreview);
+    spotObjectUrls.forEach(url => URL.revokeObjectURL(url));
+    spotObjectUrls.clear();
     void loadDays();
   },
   { immediate: true }
 );
 
 onBeforeUnmount(() => {
-  Object.keys(dayPhotos.value).forEach(clearDayPhotoPreview);
+  clearSpotPhoto();
+  spotObjectUrls.forEach(url => URL.revokeObjectURL(url));
+  spotObjectUrls.clear();
   disposed = true;
   requestSequence += 1;
   dayFormRefs.clear();
