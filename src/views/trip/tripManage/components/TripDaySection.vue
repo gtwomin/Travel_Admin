@@ -161,7 +161,62 @@
             />
           </el-form-item>
         </el-form>
+        <section class="spot-section">
+          <div class="spot-section-header">
+            <div>
+              <h4>景點／活動</h4>
 
+              <span> 共 {{ day.spots.length }} 個景點 </span>
+            </div>
+
+            <el-button type="primary" plain :disabled="isBusy" @click="openCreateSpot(day)"> ＋ 新增景點 </el-button>
+          </div>
+
+          <el-empty v-if="day.spots.length === 0" description="這一天尚未新增景點" :image-size="72" />
+
+          <div v-else class="spot-list">
+            <article v-for="spot in day.spots" :key="spot.id" class="spot-item">
+              <span class="spot-order">
+                {{ spot.sortOrder }}
+              </span>
+
+              <div class="spot-thumbnail">
+                <img v-if="spot.imageUrl" :src="spot.imageUrl" :alt="spot.name" />
+
+                <el-icon v-else>
+                  <Picture />
+                </el-icon>
+              </div>
+
+              <div class="spot-information">
+                <div class="spot-title-row">
+                  <h5>{{ spot.name }}</h5>
+
+                  <el-tag v-if="spot.tag" size="small" effect="plain">
+                    {{ spot.tag }}
+                  </el-tag>
+                </div>
+
+                <p v-if="spot.description">
+                  {{ spot.description }}
+                </p>
+
+                <p v-else class="spot-empty-description">尚未填寫景點說明</p>
+
+                <div class="spot-meta">
+                  <span v-if="spot.location"> 地點：{{ spot.location }} </span>
+
+                  <span v-if="spot.startTime || spot.endTime">
+                    時間：
+                    {{ spot.startTime || "未設定" }}
+                    －
+                    {{ spot.endTime || "未設定" }}
+                  </span>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
         <div class="day-card-footer">
           <el-button v-if="isDayDirty(day)" text :disabled="isBusy" @click="discardChanges(day)">
             {{ day.id === null ? "取消新增" : "還原變更" }}
@@ -178,6 +233,113 @@
         </div>
       </el-collapse-item>
     </el-collapse>
+    <el-dialog
+      v-model="spotDialogVisible"
+      title="新增景點／活動"
+      width="640px"
+      :close-on-click-modal="!spotSaving"
+      :close-on-press-escape="!spotSaving"
+    >
+      <el-form label-position="top" @submit.prevent>
+        <el-form-item label="景點名稱" required>
+          <el-input v-model="spotForm.name" maxlength="100" show-word-limit placeholder="例如：淺草寺" />
+        </el-form-item>
+
+        <el-form-item label="景點介紹">
+          <el-input
+            v-model="spotForm.description"
+            type="textarea"
+            :rows="4"
+            maxlength="2000"
+            show-word-limit
+            placeholder="介紹景點特色及活動內容"
+          />
+        </el-form-item>
+        <el-form-item label="景點照片（選填，最多一張）">
+          <div class="spot-photo-editor">
+            <UploadImg
+              :key="spotPhotoPreview || 'new-spot-photo'"
+              :image-url="spotPhotoPreview"
+              defer-upload
+              :file-size="5"
+              :file-type="['image/jpeg', 'image/png', 'image/webp']"
+              width="100%"
+              height="200px"
+              @update:file="setSpotPhoto"
+            >
+              <template #empty>
+                <el-icon>
+                  <Plus />
+                </el-icon>
+
+                <span>＋ 加入景點照片</span>
+              </template>
+
+              <template #tip> JPG、PNG、WebP，最多 5 MB。 </template>
+            </UploadImg>
+
+            <el-button v-if="spotPhotoFile" type="danger" plain @click="clearSpotPhoto"> 刪除照片 </el-button>
+          </div>
+        </el-form-item>
+
+        <div class="spot-form-grid">
+          <el-form-item label="景點類型">
+            <el-select v-model="spotForm.tag" clearable placeholder="請選擇類型">
+              <el-option v-for="option in spotTagOptions" :key="option.value" :label="option.label" :value="option.value" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="地點">
+            <el-input v-model="spotForm.location" maxlength="300" placeholder="例如：東京都台東區" />
+          </el-form-item>
+
+          <el-form-item label="開始時間">
+            <el-time-picker
+              v-model="spotForm.startTime"
+              value-format="HH:mm:ss"
+              format="HH:mm"
+              placeholder="選擇開始時間"
+              clearable
+            />
+          </el-form-item>
+
+          <el-form-item label="結束時間">
+            <el-time-picker
+              v-model="spotForm.endTime"
+              value-format="HH:mm:ss"
+              format="HH:mm"
+              placeholder="選擇結束時間"
+              clearable
+            />
+          </el-form-item>
+        </div>
+
+        <el-form-item label="費用設定">
+          <el-switch v-model="spotForm.includedInPrice" active-text="已包含在行程價格" inactive-text="需要額外付費" />
+        </el-form-item>
+
+        <el-form-item v-if="!spotForm.includedInPrice" label="額外費用">
+          <el-input-number v-model="spotForm.extraFee" :min="0" :step="100" :precision="2" controls-position="right" />
+        </el-form-item>
+
+        <el-form-item label="備註">
+          <el-input
+            v-model="spotForm.note"
+            type="textarea"
+            :rows="3"
+            maxlength="1000"
+            show-word-limit
+            placeholder="其他注意事項"
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button :disabled="spotSaving" @click="spotDialogVisible = false"> 取消 </el-button>
+
+        <el-button type="primary" :loading="spotSaving" @click="submitSpot"> 確認新增 </el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -190,10 +352,13 @@ import { AdminTrip } from "@/api/interface";
 import UploadImg from "@/components/Upload/Img.vue";
 import {
   createAdminTripDay,
+  createAdminTripSpot,
   deleteAdminTripDayPhoto,
   getAdminTripDayPhoto,
   getAdminTripDays,
+  getAdminTripSpots,
   updateAdminTripDay,
+  uploadAdminTripSpotPhoto,
   uploadAdminTripDayPhoto
 } from "@/api/modules/trip";
 interface DayPhotoState {
@@ -215,6 +380,7 @@ interface EditableTripDay {
   extraFee: number;
   extraFeeDescription: string;
   note: string;
+  spots: AdminTrip.TripSpotResponse[];
 }
 
 const props = defineProps<{
@@ -230,7 +396,68 @@ const emit = defineEmits<{
 const days = ref<EditableTripDay[]>([]);
 const expandedDays = ref<string[]>([]);
 const dayPhotos = ref<Record<string, DayPhotoState>>({});
+const spotDialogVisible = ref(false);
+const spotSaving = ref(false);
+const spotPhotoFile = ref<File | null>(null);
 
+const spotPhotoPreview = ref("");
+
+const selectedSpotDay = ref<EditableTripDay | null>(null);
+
+const spotForm = reactive({
+  name: "",
+  description: "",
+
+  tag: undefined as AdminTrip.SpotTag | undefined,
+
+  location: "",
+
+  startTime: undefined as string | undefined,
+
+  endTime: undefined as string | undefined,
+
+  includedInPrice: true,
+  extraFee: 0,
+  note: ""
+});
+
+const spotTagOptions: Array<{
+  label: string;
+  value: AdminTrip.SpotTag;
+}> = [
+  {
+    label: "景點",
+    value: "ATTRACTION"
+  },
+  {
+    label: "餐飲",
+    value: "FOOD"
+  },
+  {
+    label: "飯店",
+    value: "HOTEL"
+  },
+  {
+    label: "交通",
+    value: "TRANSPORTATION"
+  },
+  {
+    label: "導覽",
+    value: "GUIDE"
+  },
+  {
+    label: "門票",
+    value: "TICKET"
+  },
+  {
+    label: "購物",
+    value: "SHOPPING"
+  },
+  {
+    label: "自由活動",
+    value: "FREE_TIME"
+  }
+];
 // 只清除瀏覽器中的照片預覽
 const clearDayPhotoPreview = (key: string) => {
   const photo = dayPhotos.value[key];
@@ -368,7 +595,8 @@ const toEditableDay = (day: AdminTrip.TripDayResponse): EditableTripDay => ({
   transportation: day.transportation ?? "",
   extraFee: day.extraFee ?? 0,
   extraFeeDescription: day.extraFeeDescription ?? "",
-  note: day.note ?? ""
+  note: day.note ?? "",
+  spots: []
 });
 
 const validateDayNumber = (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
@@ -414,42 +642,173 @@ const saveSnapshots = (nextDays: EditableTripDay[]) => {
   nextDays.forEach(day => persistedSnapshots.set(day.key, cloneDay(day)));
 };
 
+const resetSpotForm = () => {
+  spotForm.name = "";
+  spotForm.description = "";
+  spotForm.tag = undefined;
+  spotForm.location = "";
+  spotForm.startTime = undefined;
+  spotForm.endTime = undefined;
+  spotForm.includedInPrice = true;
+  spotForm.extraFee = 0;
+  spotForm.note = "";
+  clearSpotPhoto();
+};
+const clearSpotPhoto = () => {
+  if (spotPhotoPreview.value) {
+    URL.revokeObjectURL(spotPhotoPreview.value);
+  }
+
+  spotPhotoFile.value = null;
+  spotPhotoPreview.value = "";
+};
+
+const setSpotPhoto = (file: File | null) => {
+  clearSpotPhoto();
+
+  if (!file) {
+    return;
+  }
+
+  spotPhotoFile.value = file;
+
+  spotPhotoPreview.value = URL.createObjectURL(file);
+};
+const openCreateSpot = (day: EditableTripDay) => {
+  if (day.id === null) {
+    ElMessage.warning("請先儲存這一天，再新增景點");
+    return;
+  }
+
+  selectedSpotDay.value = day;
+  resetSpotForm();
+  spotDialogVisible.value = true;
+};
+
+const submitSpot = async () => {
+  const day = selectedSpotDay.value;
+
+  if (!day || day.id === null) return;
+
+  if (!spotForm.name.trim()) {
+    ElMessage.warning("請輸入景點名稱");
+    return;
+  }
+
+  if (spotForm.startTime && spotForm.endTime && spotForm.endTime <= spotForm.startTime) {
+    ElMessage.warning("結束時間必須晚於開始時間");
+    return;
+  }
+
+  spotSaving.value = true;
+
+  try {
+    const nextSortOrder = day.spots.length === 0 ? 1 : Math.max(...day.spots.map(spot => spot.sortOrder)) + 1;
+    const saved = await createAdminTripSpot(props.tripId, day.id, {
+      name: spotForm.name.trim(),
+      description: spotForm.description.trim() || null,
+      tag: spotForm.tag ?? null,
+      sortOrder: nextSortOrder,
+      location: spotForm.location.trim() || null,
+      startTime: spotForm.startTime ?? null,
+      endTime: spotForm.endTime ?? null,
+      includedInPrice: spotForm.includedInPrice,
+      extraFee: spotForm.includedInPrice ? 0 : spotForm.extraFee,
+      note: spotForm.note.trim() || null
+    });
+
+    if (spotPhotoFile.value) {
+      await uploadAdminTripSpotPhoto(props.tripId, day.id, saved.id, spotPhotoFile.value);
+    }
+
+    // 重新查詢，取得包含 imageUrl 的最新景點資料
+    await loadDaySpots(day);
+    spotDialogVisible.value = false;
+    selectedSpotDay.value = null;
+    ElMessage.success("景點新增成功");
+  } finally {
+    spotSaving.value = false;
+  }
+};
+
+// 載入其中一天的景點
+const loadDaySpots = async (day: EditableTripDay) => {
+  if (day.id === null) {
+    day.spots = [];
+    return;
+  }
+
+  try {
+    const response = await getAdminTripSpots(props.tripId, day.id);
+
+    day.spots = (Array.isArray(response) ? response : []).sort((left, right) => left.sortOrder - right.sortOrder);
+  } catch {
+    day.spots = [];
+  }
+};
+
 const loadDays = async (preserveDrafts = false) => {
-  if (disposed) return false;
+  if (disposed) {
+    return false;
+  }
 
   const sequence = ++requestSequence;
+
   loading.value = true;
   loadError.value = false;
+
   try {
     const response = await getAdminTripDays(props.tripId);
-    if (disposed || sequence !== requestSequence) return false;
+
+    if (disposed || sequence !== requestSequence) {
+      return false;
+    }
 
     const nextDays = (Array.isArray(response) ? response : [])
       .map(toEditableDay)
       .sort((left, right) => left.dayNumber - right.dayNumber || (left.id ?? 0) - (right.id ?? 0));
+
     const drafts = preserveDrafts ? days.value.filter(isDayDirty) : [];
+
     const draftSnapshots = new Map(drafts.map(day => [day.key, persistedSnapshots.get(day.key)]));
+
     saveSnapshots(nextDays);
+
     for (const draft of drafts) {
       const index = nextDays.findIndex(day => day.key === draft.key);
-      if (index >= 0) nextDays[index] = draft;
-      else nextDays.push(draft);
+
+      if (index >= 0) {
+        nextDays[index] = draft;
+      } else {
+        nextDays.push(draft);
+      }
+
       const snapshot = draftSnapshots.get(draft.key);
-      if (snapshot) persistedSnapshots.set(draft.key, snapshot);
-      else persistedSnapshots.delete(draft.key);
+
+      if (snapshot) {
+        persistedSnapshots.set(draft.key, snapshot);
+      } else {
+        persistedSnapshots.delete(draft.key);
+      }
     }
+
     const durationDays = props.durationDays;
 
     if (!Number.isInteger(durationDays) || durationDays < 1 || durationDays > 10) {
       ElMessage.error("行程天數資料不正確，請先回基本資料確認並儲存。");
+
       loadError.value = true;
+
       return false;
     }
 
-    // 保留已存在的每日內容，只補上缺少的天數。
+    // 保留已存在內容，只補上缺少的天數
     for (let dayNumber = 1; dayNumber <= durationDays; dayNumber += 1) {
       const exists = nextDays.some(day => day.dayNumber === dayNumber);
-      if (exists) continue;
+
+      if (exists) {
+        continue;
+      }
 
       newDaySequence += 1;
 
@@ -466,7 +825,8 @@ const loadDays = async (preserveDrafts = false) => {
         transportation: "",
         extraFee: 0,
         extraFeeDescription: "",
-        note: ""
+        note: "",
+        spots: []
       });
     }
 
@@ -477,12 +837,20 @@ const loadDays = async (preserveDrafts = false) => {
     // 載入每一天已儲存的照片
     await Promise.all(days.value.filter(day => day.id !== null).map(day => loadDayPhoto(day)));
 
+    // 載入每一天的景點
+    await Promise.all(days.value.filter(day => day.id !== null).map(day => loadDaySpots(day)));
+
     return true;
   } catch {
-    if (!disposed && sequence === requestSequence) loadError.value = true;
+    if (!disposed && sequence === requestSequence) {
+      loadError.value = true;
+    }
+
     return false;
   } finally {
-    if (!disposed && sequence === requestSequence) loading.value = false;
+    if (!disposed && sequence === requestSequence) {
+      loading.value = false;
+    }
   }
 };
 
@@ -740,8 +1108,114 @@ onBeforeUnmount(() => {
 .day-save-hint {
   font-size: var(--el-font-size-small);
 }
+.spot-section {
+  padding-top: 20px;
+  margin-top: 20px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+.spot-section-header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.spot-section-header > div {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.spot-section-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--el-text-color-primary);
+}
+.spot-section-header span {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+.spot-list {
+  display: grid;
+  gap: 12px;
+}
+.spot-item {
+  display: grid;
+  grid-template-columns: 36px 112px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 14px;
+  background: var(--el-fill-color-extra-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--el-border-radius-base);
+}
+.spot-order {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  font-weight: 700;
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+  border-radius: 50%;
+}
+.spot-thumbnail {
+  display: grid;
+  place-items: center;
+  width: 112px;
+  height: 72px;
+  overflow: hidden;
+  color: var(--el-text-color-placeholder);
+  background: var(--el-fill-color);
+  border-radius: var(--el-border-radius-small);
+}
+.spot-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.spot-information {
+  min-width: 0;
+}
+.spot-title-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.spot-title-row h5 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--el-text-color-primary);
+}
+.spot-information p {
+  display: -webkit-box;
+  margin: 6px 0;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  line-height: 1.6;
+  color: var(--el-text-color-regular);
+  -webkit-box-orient: vertical;
+}
+.spot-empty-description {
+  color: var(--el-text-color-placeholder) !important;
+}
+.spot-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+.spot-photo-editor {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+}
 
 @media (width <= 768px) {
+  .spot-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .day-thumbnail {
     width: 72px;
     height: 48px;
@@ -772,6 +1246,21 @@ onBeforeUnmount(() => {
   }
   .day-card :deep(.el-collapse-item__content) {
     padding: 0 12px 16px;
+  }
+  .spot-item {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+  .spot-thumbnail {
+    grid-column: 1 / -1;
+    width: 100%;
+    height: 150px;
+  }
+  .spot-information {
+    grid-column: 1 / -1;
+  }
+  .spot-section-header,
+  .spot-section-header > div {
+    align-items: flex-start;
   }
 }
 </style>
