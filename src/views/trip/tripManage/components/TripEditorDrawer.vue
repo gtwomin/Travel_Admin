@@ -46,6 +46,29 @@
           label-position="top"
           @submit.prevent
         >
+          <section class="preset-panel">
+            <div>
+              <strong>快速產生範例資料</strong>
+              <p>先選國家／地區，再選擇該國範例；照片仍由管理者自行上傳。</p>
+            </div>
+            <el-select
+              v-model="selectedCountry"
+              class="preset-select"
+              filterable
+              clearable
+              placeholder="選擇範例國家"
+              @change="handlePresetCountryChange"
+            >
+              <el-option v-for="country in countryOptions" :key="country.value" :label="country.label" :value="country.value" />
+            </el-select>
+            <el-select v-model="selectedPresetCode" class="preset-select" :disabled="!selectedCountry" placeholder="選擇行程範例">
+              <el-option v-for="preset in availablePresets" :key="preset.code" :label="preset.label" :value="preset.code" />
+            </el-select>
+            <el-button type="primary" plain :disabled="!selectedCountry || !selectedPresetCode" @click="applyBasicPreset">
+              套用基本資料範例
+            </el-button>
+          </section>
+
           <el-divider content-position="left">基本資料</el-divider>
           <div class="form-grid">
             <el-form-item label="行程名稱" prop="tripName">
@@ -75,7 +98,14 @@
               </el-select>
             </el-form-item>
             <el-form-item label="國家／地區">
-              <el-select v-model="selectedCountry" class="full-width" filterable clearable placeholder="全部國家／地區">
+              <el-select
+                v-model="selectedCountry"
+                class="full-width"
+                filterable
+                clearable
+                placeholder="全部國家／地區"
+                @change="handlePresetCountryChange"
+              >
                 <el-option v-for="country in countryOptions" :key="country.value" :label="country.label" :value="country.value" />
               </el-select>
               <p class="form-hint">僅篩選可選城市；切換國家／地區會保留已選城市，可跨國選擇。</p>
@@ -152,8 +182,11 @@
         </section>
         <TripDaySection
           v-else-if="currentStep === 2 && isPersisted"
+          ref="daySectionRef"
           :trip-id="persistedTripId"
           :duration-days="form.durationDays"
+          :preset-days="activePreset?.days ?? []"
+          :preset-label="activePreset?.label ?? ''"
           @busy-change="handleDayBusyChange"
           @dirty-change="handleDayDirtyChange"
           @changed="handleDayChanged"
@@ -210,10 +243,10 @@
           <el-button
             v-else-if="currentStep < 4"
             type="primary"
-            :disabled="submitting || photoBusy || dayBusy || departureBusy || (currentStep === 2 && dayDirty)"
+            :disabled="submitting || photoBusy || dayBusy || departureBusy"
             @click="nextStep"
           >
-            {{ currentStep === 2 && dayDirty ? "請先儲存每日行程" : "下一步" }}
+            {{ currentStep === 2 && dayDirty ? "儲存並下一步" : "下一步" }}
           </el-button>
           <template v-else-if="currentStep === 4">
             <el-button :disabled="submitting || previewBusy" @click="changeTripStatus('INACTIVE')"> 儲存並下架 </el-button>
@@ -246,6 +279,7 @@ import TripDaySection from "./TripDaySection.vue";
 import TripPhotoSection from "./TripPhotoSection.vue";
 import TripDepartureSection from "./TripDepartureSection.vue";
 import TripPreviewSection from "./TripPreviewSection.vue";
+import { findTripPreset, getTripPresetsByCountry, type TripPresetCountryCode } from "../data/tripPresets";
 
 type EditorMode = "create" | "edit";
 type WizardStep = 0 | 1 | 2 | 3 | 4;
@@ -282,6 +316,9 @@ const departureBusy = ref(false);
 const previewBusy = ref(false);
 const previewSectionRef = ref<{
   validateForPublish: () => boolean;
+} | null>(null);
+const daySectionRef = ref<{
+  saveAllDays: () => Promise<boolean>;
 } | null>(null);
 const tripId = ref<number | null>(null);
 const currentStep = ref<WizardStep>(0);
@@ -338,11 +375,68 @@ const destinationCountries: Record<AdminTrip.TravelDestination, CountryCode> = {
   MACAU: "MO"
 };
 const selectedCountry = ref<CountryCode | "">("");
+const selectedPresetCode = ref("");
+const availablePresets = computed(() => getTripPresetsByCountry(selectedCountry.value as TripPresetCountryCode | ""));
+const activePreset = computed(() => findTripPreset(selectedPresetCode.value));
 const filteredCityOptions = computed(() =>
   selectedCountry.value
     ? cityOptions.value.filter(option => destinationCountries[option.value] === selectedCountry.value)
     : cityOptions.value
 );
+
+const handlePresetCountryChange = () => {
+  const firstPreset = availablePresets.value.find(preset => preset.countryCode === selectedCountry.value);
+  selectedPresetCode.value = firstPreset?.code ?? availablePresets.value[0]?.code ?? "";
+};
+
+const applyBasicPreset = async () => {
+  const preset = activePreset.value;
+  if (!preset || !selectedCountry.value) {
+    ElMessage.warning("請先選擇國家與行程範例");
+    return;
+  }
+
+  const hasExistingContent = Boolean(
+    form.tripName || form.summary || form.tripContent || form.destinations.length || form.tripPrice > 0
+  );
+  if (hasExistingContent) {
+    try {
+      await ElMessageBox.confirm("套用範例會覆蓋目前基本資料，確定要繼續嗎？", "套用快速範例", {
+        type: "warning",
+        confirmButtonText: "確定套用",
+        cancelButtonText: "取消"
+      });
+    } catch {
+      return;
+    }
+  }
+
+  const countryLabel = countryOptions.find(country => country.value === selectedCountry.value)?.label ?? "目的地";
+  const isGeneric = preset.countryCode === "GENERIC";
+  const destination = filteredCityOptions.value[0]?.value;
+
+  if (isGeneric && !destination) {
+    ElMessage.warning("這個國家目前沒有可使用的目的城市");
+    return;
+  }
+
+  Object.assign(form, {
+    durationDays: preset.durationDays,
+    departureCity: preset.departureCity,
+    tripName: isGeneric ? `${countryLabel}精選四天三夜` : preset.tripName,
+    summary: isGeneric ? `${countryLabel}城市文化與熱門景點精選行程` : preset.summary,
+    tripPrice: preset.tripPrice,
+    destinations: isGeneric ? [destination] : [...preset.destinations],
+    bookingMode: preset.bookingMode,
+    productType: preset.productType,
+    tripContent: isGeneric
+      ? `走訪${countryLabel}代表性城市與文化景點，結合在地美食、特色體驗與自由活動時間。`
+      : preset.tripContent
+  });
+
+  formRef.value?.clearValidate();
+  ElMessage.success(`已套用「${preset.label}」基本資料`);
+};
 let requestSequence = 0;
 
 const serializeForm = (value: TripFormModel) =>
@@ -429,6 +523,7 @@ const toTripPayload = (): AdminTrip.TripBaseRequest => ({
 
 const resetForm = () => {
   selectedCountry.value = "";
+  selectedPresetCode.value = "";
   Object.assign(form, createDefaultForm());
   savedFormSnapshot.value = serializeForm(form);
   formRef.value?.clearValidate();
@@ -508,6 +603,8 @@ const loadEditDetail = async (id: number, requestId: number) => {
       productType: detail.productType ?? null,
       tripContent: detail.tripContent ?? ""
     });
+    selectedCountry.value = detail.destinations[0] ? destinationCountries[detail.destinations[0]] : "";
+    handlePresetCountryChange();
     status.value = detail.status;
     savedFormSnapshot.value = serializeForm(form);
     loadError.value = false;
@@ -630,17 +727,21 @@ const previousStep = async () => {
 
   currentStep.value = (currentStep.value - 1) as WizardStep;
 };
-const nextStep = () => {
+const nextStep = async () => {
   if (
     submitting.value ||
     photoBusy.value ||
     dayBusy.value ||
     departureBusy.value ||
-    (currentStep.value === 2 && dayDirty.value) ||
     currentStep.value >= 4 ||
     !isPersisted.value
   ) {
     return;
+  }
+
+  if (currentStep.value === 2 && dayDirty.value) {
+    const saved = await daySectionRef.value?.saveAllDays();
+    if (!saved) return;
   }
 
   // 自由日期：從每日行程直接進預覽。
@@ -734,6 +835,25 @@ defineExpose({ openCreate, openEdit });
 .trip-form {
   padding: 0 4px;
 }
+.preset-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 0.7fr) minmax(200px, 0.9fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 16px;
+  margin-bottom: 20px;
+  background: var(--el-color-primary-light-9);
+  border: 1px solid var(--el-color-primary-light-7);
+  border-radius: var(--el-border-radius-base);
+}
+.preset-panel p {
+  margin: 4px 0 0;
+  font-size: var(--el-font-size-small);
+  color: var(--el-text-color-secondary);
+}
+.preset-select {
+  width: 100%;
+}
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -806,6 +926,9 @@ defineExpose({ openCreate, openEdit });
     font-size: var(--el-font-size-small);
   }
   .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .preset-panel {
     grid-template-columns: minmax(0, 1fr);
   }
   .placeholder-step {

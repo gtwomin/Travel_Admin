@@ -6,6 +6,9 @@
         <p class="day-section-description">點選每日標題展開詳細資料，依天數編排路線、餐食、住宿與交通資訊。</p>
       </div>
       <div class="day-section-actions">
+        <el-button v-if="presetDays.length" plain :disabled="isBusy" @click="applyPresetDays">
+          快速產生{{ presetLabel || "範例" }}每日行程
+        </el-button>
         <el-button
           text
           :icon="Refresh"
@@ -14,6 +17,9 @@
           @click="loadDays()"
         >
           重新整理
+        </el-button>
+        <el-button type="primary" :loading="savingAll" :disabled="isBusy && !savingAll" @click="saveAllDays">
+          儲存全部每日行程
         </el-button>
       </div>
     </div>
@@ -163,7 +169,7 @@
                   <h5>{{ spot.name }}</h5>
 
                   <el-tag v-if="spot.tag" size="small" effect="plain">
-                    {{ spot.tag }}
+                    {{ getSpotTagLabel(spot.tag) }}
                   </el-tag>
                 </div>
 
@@ -215,6 +221,24 @@
       :close-on-click-modal="!spotSaving"
       :close-on-press-escape="!spotSaving"
     >
+      <section v-if="availableSpotPresets.length" class="spot-preset-panel">
+        <div>
+          <strong>快速填入景點資料</strong>
+          <p>範例會依基本資料所選的國家與當前天數顯示，照片仍需自行選擇。</p>
+        </div>
+        <el-select v-model="selectedSpotPresetIndex" placeholder="選擇景點範例" clearable>
+          <el-option
+            v-for="(preset, index) in availableSpotPresets"
+            :key="`${preset.name}-${index}`"
+            :label="preset.name"
+            :value="index"
+          />
+        </el-select>
+        <el-button type="primary" plain :disabled="selectedSpotPresetIndex === undefined" @click="applySpotPreset">
+          套用景點範例
+        </el-button>
+      </section>
+
       <el-form label-position="top" @submit.prevent>
         <el-form-item label="景點名稱" required>
           <el-input v-model="spotForm.name" maxlength="100" show-word-limit placeholder="例如：淺草寺" />
@@ -338,6 +362,7 @@ import {
   updateAdminTripSpot,
   uploadAdminTripSpotPhoto
 } from "@/api/modules/trip";
+import type { TripPresetDay } from "../data/tripPresets";
 interface EditableTripDay {
   key: string;
   id: number | null;
@@ -355,10 +380,18 @@ interface EditableTripDay {
   spots: AdminTrip.TripSpotResponse[];
 }
 
-const props = defineProps<{
-  tripId: number;
-  durationDays: number;
-}>();
+const props = withDefaults(
+  defineProps<{
+    tripId: number;
+    durationDays: number;
+    presetDays?: TripPresetDay[];
+    presetLabel?: string;
+  }>(),
+  {
+    presetDays: () => [],
+    presetLabel: ""
+  }
+);
 const emit = defineEmits<{
   changed: [];
   busyChange: [busy: boolean];
@@ -376,6 +409,7 @@ const spotObjectUrls = new Map<number, string>();
 
 const selectedSpotDay = ref<EditableTripDay | null>(null);
 const editingSpot = ref<AdminTrip.TripSpotResponse | null>(null);
+const selectedSpotPresetIndex = ref<number>();
 const spotForm = reactive({
   name: "",
   description: "",
@@ -430,9 +464,12 @@ const spotTagOptions: Array<{
     value: "FREE_TIME"
   }
 ];
+
+const getSpotTagLabel = (tag: AdminTrip.SpotTag) => spotTagOptions.find(option => option.value === tag)?.label ?? tag;
 const loading = ref(false);
 const loadError = ref(false);
 const savingKey = ref<string | null>(null);
+const savingAll = ref(false);
 
 const dayFormRefs = new Map<string, FormInstance>();
 const persistedSnapshots = reactive(new Map<string, EditableTripDay>());
@@ -448,6 +485,10 @@ const isDayDirty = (day: EditableTripDay) => {
 const hasUnsavedChanges = computed(() => days.value.some(day => isDayDirty(day)));
 
 const getFirstSpotPhoto = (day: EditableTripDay) => day.spots.find(spot => Boolean(spot.imageUrl))?.imageUrl ?? "";
+const availableSpotPresets = computed(() => {
+  const dayNumber = selectedSpotDay.value?.dayNumber;
+  return props.presetDays?.find(day => day.dayNumber === dayNumber)?.spots ?? [];
+});
 
 const optionalText = (value: string) => value.trim() || null;
 
@@ -562,13 +603,10 @@ const setSpotPhoto = (file: File | null) => {
   spotPhotoPreview.value = URL.createObjectURL(file);
 };
 const openCreateSpot = (day: EditableTripDay) => {
-  if (day.id === null) {
-    ElMessage.warning("請先儲存這一天，再新增景點");
-    return;
-  }
   editingSpot.value = null;
   selectedSpotDay.value = day;
   resetSpotForm();
+  selectedSpotPresetIndex.value = undefined;
   spotDialogVisible.value = true;
 };
 const openEditSpot = (day: EditableTripDay, spot: AdminTrip.TripSpotResponse) => {
@@ -577,6 +615,7 @@ const openEditSpot = (day: EditableTripDay, spot: AdminTrip.TripSpotResponse) =>
   }
 
   resetSpotForm();
+  selectedSpotPresetIndex.value = undefined;
 
   selectedSpotDay.value = day;
   editingSpot.value = spot;
@@ -596,10 +635,27 @@ const openEditSpot = (day: EditableTripDay, spot: AdminTrip.TripSpotResponse) =>
 
   spotDialogVisible.value = true;
 };
+const applySpotPreset = () => {
+  if (selectedSpotPresetIndex.value === undefined) return;
+  const preset = availableSpotPresets.value[selectedSpotPresetIndex.value];
+  if (!preset) return;
+
+  Object.assign(spotForm, {
+    name: preset.name,
+    description: preset.description,
+    tag: preset.tag,
+    location: preset.location,
+    startTime: preset.startTime ?? undefined,
+    endTime: preset.endTime ?? undefined,
+    includedInPrice: preset.includedInPrice,
+    extraFee: preset.extraFee,
+    note: preset.note
+  });
+};
 const submitSpot = async () => {
   const day = selectedSpotDay.value;
 
-  if (!day || day.id === null) {
+  if (!day) {
     return;
   }
 
@@ -617,6 +673,14 @@ const submitSpot = async () => {
   spotSaving.value = true;
 
   try {
+    // 新增景點時若這一天尚未建立，先在背景儲存，不要求使用者額外按一次「儲存這一天」。
+    if (day.id === null) {
+      const daySaved = await saveDay(day, false);
+      if (!daySaved || day.id === null) {
+        return;
+      }
+    }
+
     const nextSortOrder =
       editingSpot.value?.sortOrder ?? (day.spots.length === 0 ? 1 : Math.max(...day.spots.map(spot => spot.sortOrder)) + 1);
 
@@ -853,9 +917,49 @@ const refreshAfterMutation = async (successMessage: string) => {
   emit("changed");
 };
 
-const saveDay = async (day: EditableTripDay) => {
+const applyPresetDays = async () => {
+  if (!props.presetDays?.length) return;
+
+  const hasExistingContent = days.value.some(day =>
+    Boolean(day.title || day.content || day.breakfast || day.lunch || day.dinner || day.hotel || day.transportation || day.note)
+  );
+
+  if (hasExistingContent) {
+    try {
+      await ElMessageBox.confirm("快速產生會覆蓋目前尚未儲存的每日文字資料，確定繼續嗎？", "套用每日行程範例", {
+        type: "warning",
+        confirmButtonText: "確定套用",
+        cancelButtonText: "取消"
+      });
+    } catch {
+      return;
+    }
+  }
+
+  for (const day of days.value) {
+    const preset = props.presetDays.find(item => item.dayNumber === day.dayNumber);
+    if (!preset) continue;
+    Object.assign(day, {
+      title: preset.title,
+      content: preset.content,
+      breakfast: preset.breakfast,
+      lunch: preset.lunch,
+      dinner: preset.dinner,
+      hotel: preset.hotel,
+      transportation: preset.transportation,
+      extraFee: preset.extraFee,
+      extraFeeDescription: preset.extraFeeDescription,
+      note: preset.note
+    });
+  }
+
+  expandedDays.value = days.value.map(day => day.key);
+  ElMessage.success(`已產生「${props.presetLabel || "通用範例"}」每日行程`);
+};
+
+const saveDay = async (day: EditableTripDay, refresh = true): Promise<boolean> => {
   if (isBusy.value) {
-    return;
+    return false;
   }
 
   const form = dayFormRefs.get(day.key);
@@ -863,7 +967,7 @@ const saveDay = async (day: EditableTripDay) => {
   const valid = await form?.validate().catch(() => false);
 
   if (!valid) {
-    return;
+    return false;
   }
 
   savingKey.value = day.key;
@@ -881,6 +985,12 @@ const saveDay = async (day: EditableTripDay) => {
       day.key = `day-${saved.id}`;
 
       expandedDays.value = expandedDays.value.map(key => (key === oldKey ? day.key : key));
+
+      const formRef = dayFormRefs.get(oldKey);
+      if (formRef) {
+        dayFormRefs.delete(oldKey);
+        dayFormRefs.set(day.key, formRef);
+      }
     } else {
       // 修改既有每日行程文字資料
       await updateAdminTripDay(props.tripId, day.id, payload);
@@ -892,13 +1002,63 @@ const saveDay = async (day: EditableTripDay) => {
 
     persistedSnapshots.set(day.key, cloneDay(day));
 
-    await refreshAfterMutation("每日行程儲存成功");
+    if (refresh) {
+      await refreshAfterMutation("每日行程儲存成功");
+    }
+    return true;
   } catch {
     // API 錯誤訊息由全域攔截器顯示
+    return false;
   } finally {
     savingKey.value = null;
   }
 };
+
+const saveAllDays = async (): Promise<boolean> => {
+  if (isBusy.value || spotSaving.value) {
+    return false;
+  }
+
+  const validationResults = await Promise.all(
+    days.value.map(
+      day =>
+        dayFormRefs
+          .get(day.key)
+          ?.validate()
+          .then(() => true)
+          .catch(() => false) ?? false
+    )
+  );
+
+  if (validationResults.some(valid => !valid)) {
+    ElMessage.warning("請先完成每一天的必填資料");
+    return false;
+  }
+
+  savingAll.value = true;
+
+  try {
+    for (const day of days.value) {
+      if (!isDayDirty(day)) continue;
+      const saved = await saveDay(day, false);
+      if (!saved) return false;
+    }
+
+    const refreshed = await loadDays();
+    if (!refreshed) {
+      ElMessage.warning("資料已儲存，但重新整理失敗，請稍後再試");
+      return false;
+    }
+
+    ElMessage.success("每日行程已全部儲存");
+    emit("changed");
+    return true;
+  } finally {
+    savingAll.value = false;
+  }
+};
+
+defineExpose({ saveAllDays });
 
 const discardChanges = (day: EditableTripDay) => {
   if (day.id === null) {
@@ -1188,9 +1348,28 @@ onBeforeUnmount(() => {
   width: 100%;
   max-width: 420px;
 }
+.spot-preset-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.8fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  margin-bottom: 18px;
+  background: var(--el-color-primary-light-9);
+  border: 1px solid var(--el-color-primary-light-7);
+  border-radius: var(--el-border-radius-base);
+}
+.spot-preset-panel p {
+  margin: 4px 0 0;
+  font-size: var(--el-font-size-small);
+  color: var(--el-text-color-secondary);
+}
 
 @media (width <= 768px) {
   .spot-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .spot-preset-panel {
     grid-template-columns: minmax(0, 1fr);
   }
   .day-thumbnail {
