@@ -229,6 +229,25 @@ export const getAdminTripSpots = (tripId: number, tripDayId: number) =>
   http.getDirect<AdminTrip.TripSpotResponse[]>(`${ADMIN_SERVICE}/trips/${tripId}/days/${tripDayId}/spots`, undefined, {
     loading: false
   });
+// 修改景點資料
+export const updateAdminTripSpot = (
+  tripId: number,
+  tripDayId: number,
+  spotId: number,
+  params: AdminTrip.TripSpotRequest
+): Promise<void> =>
+  http
+    .put(`${ADMIN_SERVICE}/trips/${tripId}/days/${tripDayId}/spots/${spotId}`, toTripSpotPayload(params), {
+      loading: false
+    })
+    .then(() => undefined);
+// 永久刪除景點及其照片
+export const deleteAdminTripSpot = (tripId: number, tripDayId: number, spotId: number): Promise<void> =>
+  http
+    .delete(`${ADMIN_SERVICE}/trips/${tripId}/days/${tripDayId}/spots/${spotId}`, undefined, {
+      loading: false
+    })
+    .then(() => undefined);
 // 上傳或更換景點照片
 export const uploadAdminTripSpotPhoto = (tripId: number, tripDayId: number, spotId: number, file: File): Promise<void> => {
   const formData = new FormData();

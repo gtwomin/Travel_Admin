@@ -214,6 +214,11 @@
                   </span>
                 </div>
               </div>
+              <div class="spot-actions">
+                <el-button type="primary" link :disabled="spotSaving" @click="openEditSpot(day, spot)"> 編輯 </el-button>
+
+                <el-button type="danger" link :disabled="spotSaving" @click="removeSpot(day, spot)"> 刪除 </el-button>
+              </div>
             </article>
           </div>
         </section>
@@ -235,7 +240,7 @@
     </el-collapse>
     <el-dialog
       v-model="spotDialogVisible"
-      title="新增景點／活動"
+      :title="editingSpot ? '編輯景點／活動' : '新增景點／活動'"
       width="640px"
       :close-on-click-modal="!spotSaving"
       :close-on-press-escape="!spotSaving"
@@ -337,7 +342,9 @@
       <template #footer>
         <el-button :disabled="spotSaving" @click="spotDialogVisible = false"> 取消 </el-button>
 
-        <el-button type="primary" :loading="spotSaving" @click="submitSpot"> 確認新增 </el-button>
+        <el-button type="primary" :loading="spotSaving" @click="submitSpot">
+          {{ editingSpot ? "儲存修改" : "確認新增" }}
+        </el-button>
       </template>
     </el-dialog>
   </section>
@@ -345,7 +352,7 @@
 
 <script setup lang="ts" name="TripDaySection">
 import { Picture, Plus, Refresh } from "@element-plus/icons-vue";
-import { ElMessage, type FormInstance, type FormRules } from "element-plus";
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from "element-plus";
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 
 import { AdminTrip } from "@/api/interface";
@@ -359,7 +366,9 @@ import {
   getAdminTripSpots,
   updateAdminTripDay,
   uploadAdminTripSpotPhoto,
-  uploadAdminTripDayPhoto
+  uploadAdminTripDayPhoto,
+  deleteAdminTripSpot,
+  updateAdminTripSpot
 } from "@/api/modules/trip";
 interface DayPhotoState {
   file: File | null;
@@ -403,7 +412,7 @@ const spotPhotoFile = ref<File | null>(null);
 const spotPhotoPreview = ref("");
 
 const selectedSpotDay = ref<EditableTripDay | null>(null);
-
+const editingSpot = ref<AdminTrip.TripSpotResponse | null>(null);
 const spotForm = reactive({
   name: "",
   description: "",
@@ -679,16 +688,42 @@ const openCreateSpot = (day: EditableTripDay) => {
     ElMessage.warning("請先儲存這一天，再新增景點");
     return;
   }
-
+  editingSpot.value = null;
   selectedSpotDay.value = day;
   resetSpotForm();
   spotDialogVisible.value = true;
 };
+const openEditSpot = (day: EditableTripDay, spot: AdminTrip.TripSpotResponse) => {
+  if (day.id === null) {
+    return;
+  }
 
+  resetSpotForm();
+
+  selectedSpotDay.value = day;
+  editingSpot.value = spot;
+
+  spotForm.name = spot.name;
+  spotForm.description = spot.description ?? "";
+  spotForm.tag = spot.tag ?? undefined;
+  spotForm.location = spot.location ?? "";
+  spotForm.startTime = spot.startTime ?? undefined;
+  spotForm.endTime = spot.endTime ?? undefined;
+  spotForm.includedInPrice = spot.includedInPrice ?? true;
+  spotForm.extraFee = spot.extraFee ?? 0;
+  spotForm.note = spot.note ?? "";
+
+  // 顯示原本景點照片
+  spotPhotoPreview.value = spot.imageUrl ?? "";
+
+  spotDialogVisible.value = true;
+};
 const submitSpot = async () => {
   const day = selectedSpotDay.value;
 
-  if (!day || day.id === null) return;
+  if (!day || day.id === null) {
+    return;
+  }
 
   if (!spotForm.name.trim()) {
     ElMessage.warning("請輸入景點名稱");
@@ -697,40 +732,95 @@ const submitSpot = async () => {
 
   if (spotForm.startTime && spotForm.endTime && spotForm.endTime <= spotForm.startTime) {
     ElMessage.warning("結束時間必須晚於開始時間");
+
     return;
   }
 
   spotSaving.value = true;
 
   try {
-    const nextSortOrder = day.spots.length === 0 ? 1 : Math.max(...day.spots.map(spot => spot.sortOrder)) + 1;
-    const saved = await createAdminTripSpot(props.tripId, day.id, {
-      name: spotForm.name.trim(),
-      description: spotForm.description.trim() || null,
-      tag: spotForm.tag ?? null,
-      sortOrder: nextSortOrder,
-      location: spotForm.location.trim() || null,
-      startTime: spotForm.startTime ?? null,
-      endTime: spotForm.endTime ?? null,
-      includedInPrice: spotForm.includedInPrice,
-      extraFee: spotForm.includedInPrice ? 0 : spotForm.extraFee,
-      note: spotForm.note.trim() || null
-    });
+    const nextSortOrder =
+      editingSpot.value?.sortOrder ?? (day.spots.length === 0 ? 1 : Math.max(...day.spots.map(spot => spot.sortOrder)) + 1);
 
-    if (spotPhotoFile.value) {
-      await uploadAdminTripSpotPhoto(props.tripId, day.id, saved.id, spotPhotoFile.value);
+    const payload: AdminTrip.TripSpotRequest = {
+      name: spotForm.name.trim(),
+
+      description: spotForm.description.trim() || null,
+
+      tag: spotForm.tag ?? null,
+
+      sortOrder: nextSortOrder,
+
+      location: spotForm.location.trim() || null,
+
+      startTime: spotForm.startTime ?? null,
+
+      endTime: spotForm.endTime ?? null,
+
+      includedInPrice: spotForm.includedInPrice,
+
+      extraFee: spotForm.includedInPrice ? 0 : spotForm.extraFee,
+
+      note: spotForm.note.trim() || null
+    };
+
+    let spotId: number;
+
+    if (editingSpot.value) {
+      spotId = editingSpot.value.id;
+
+      await updateAdminTripSpot(props.tripId, day.id, spotId, payload);
+    } else {
+      const saved = await createAdminTripSpot(props.tripId, day.id, payload);
+
+      spotId = saved.id;
     }
 
-    // 重新查詢，取得包含 imageUrl 的最新景點資料
+    // 有選擇新照片才上傳或取代
+    if (spotPhotoFile.value) {
+      await uploadAdminTripSpotPhoto(props.tripId, day.id, spotId, spotPhotoFile.value);
+    }
+
     await loadDaySpots(day);
+
+    const successMessage = editingSpot.value ? "景點修改成功" : "景點新增成功";
+
     spotDialogVisible.value = false;
     selectedSpotDay.value = null;
-    ElMessage.success("景點新增成功");
+    editingSpot.value = null;
+
+    ElMessage.success(successMessage);
   } finally {
     spotSaving.value = false;
   }
 };
+const removeSpot = async (day: EditableTripDay, spot: AdminTrip.TripSpotResponse) => {
+  if (day.id === null) {
+    return;
+  }
 
+  try {
+    await ElMessageBox.confirm(`確定要永久刪除「${spot.name}」嗎？景點照片也會一起刪除。`, "刪除景點", {
+      confirmButtonText: "確定刪除",
+      cancelButtonText: "取消",
+      type: "warning"
+    });
+  } catch {
+    return;
+  }
+
+  spotSaving.value = true;
+
+  try {
+    await deleteAdminTripSpot(props.tripId, day.id, spot.id);
+
+    await loadDaySpots(day);
+
+    ElMessage.success("景點已刪除");
+  } finally {
+    spotSaving.value = false;
+  }
+};
 // 載入其中一天的景點
 const loadDaySpots = async (day: EditableTripDay) => {
   if (day.id === null) {
@@ -1140,13 +1230,18 @@ onBeforeUnmount(() => {
 }
 .spot-item {
   display: grid;
-  grid-template-columns: 36px 112px minmax(0, 1fr);
+  grid-template-columns: 36px 112px minmax(0, 1fr) auto;
   gap: 16px;
   align-items: center;
   padding: 14px;
   background: var(--el-fill-color-extra-light);
   border: 1px solid var(--el-border-color-lighter);
   border-radius: var(--el-border-radius-base);
+}
+.spot-actions {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
 }
 .spot-order {
   display: grid;
@@ -1261,6 +1356,10 @@ onBeforeUnmount(() => {
   .spot-section-header,
   .spot-section-header > div {
     align-items: flex-start;
+  }
+  .spot-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
   }
 }
 </style>
