@@ -44,7 +44,13 @@
             :disabled-date="disablePastDate"
           />
         </el-form-item>
-
+        <el-alert
+          v-if="bookingMode === 'FIXED_DEPARTURE' && latestDepartureDate"
+          :title="`新梯次必須選擇 ${latestDepartureDate} 之後的日期`"
+          type="info"
+          :closable="false"
+          show-icon
+        />
         <el-form-item label="結束日期">
           <el-input
             :model-value="calculatedEndDate ? calculatedEndDate.toLocaleDateString('zh-TW') : '請先選擇出發日期'"
@@ -161,7 +167,9 @@ const loadDepartures = async () => {
   setBusy(true);
 
   try {
-    departures.value = await getAdminTripDepartures(props.tripId);
+    const result = await getAdminTripDepartures(props.tripId);
+
+    departures.value = [...result].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   } finally {
     loading.value = false;
     setBusy(false);
@@ -169,8 +177,17 @@ const loadDepartures = async () => {
 };
 
 const submitDeparture = async () => {
+  if (loading.value || submitting.value) return;
+
   if (!form.startDate || !calculatedEndDate.value) {
     ElMessage.warning("請選擇出發日期");
+    return;
+  }
+
+  const dateError = getDepartureDateError(form.startDate);
+
+  if (dateError) {
+    ElMessage.warning(dateError);
     return;
   }
 
@@ -236,13 +253,52 @@ const removeDeparture = async (departure: AdminTrip.TripDepartureResponse) => {
   }
 };
 
-const disablePastDate = (date: Date) => {
-  const today = new Date();
+// 以台灣日期比較，避免時間與瀏覽器時區影響日期判斷。
+const taipeiDateFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Taipei",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit"
+});
 
-  today.setHours(0, 0, 0, 0);
+const getTaipeiDateKey = (date: Date) => {
+  const parts = taipeiDateFormatter.formatToParts(date);
+  const get = (type: string) => parts.find(part => part.type === type)?.value ?? "";
 
-  return date.getTime() < today.getTime();
+  return `${get("year")}-${get("month")}-${get("day")}`;
 };
+
+// 日期選擇器的 Date 代表使用者選取的日曆日期。
+const getSelectedDateKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+const latestDepartureDate = computed(() => {
+  const dates = departures.value.map(departure => getTaipeiDateKey(new Date(departure.startTime)));
+
+  return dates.sort().at(-1);
+});
+
+const getDepartureDateError = (date: Date) => {
+  if (Number.isNaN(date.getTime())) {
+    return "請選擇有效的出發日期";
+  }
+
+  const selectedDate = getSelectedDateKey(date);
+  const today = getTaipeiDateKey(new Date());
+
+  // 目前採用：只能新增明天起的梯次。
+  if (selectedDate <= today) {
+    return "出發日期必須晚於今天";
+  }
+
+  if (props.bookingMode === "FIXED_DEPARTURE" && latestDepartureDate.value && selectedDate <= latestDepartureDate.value) {
+    return `新梯次出發日期必須晚於 ${latestDepartureDate.value}`;
+  }
+
+  return "";
+};
+
+const disablePastDate = (date: Date) => Boolean(getDepartureDateError(date));
 
 const formatDateTime = (value: string) => {
   return new Intl.DateTimeFormat("zh-TW", {
