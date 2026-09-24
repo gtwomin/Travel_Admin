@@ -6,9 +6,6 @@
         <p class="day-section-description">點選每日標題展開詳細資料，依天數編排路線、餐食、住宿與交通資訊。</p>
       </div>
       <div class="day-section-actions">
-        <el-button v-if="presetDays.length" plain :disabled="isBusy" @click="applyPresetDays">
-          快速產生{{ presetLabel || "範例" }}每日行程
-        </el-button>
         <el-button
           text
           :icon="Refresh"
@@ -23,6 +20,24 @@
         </el-button>
       </div>
     </div>
+
+    <section class="day-preset-panel">
+      <div>
+        <strong>快速填入每日行程</strong>
+        <p v-if="presetDays.length">
+          目前範例：{{ presetLabel || "通用範例" }}。填入後可修改，確認後請儲存每日行程。景點與照片請另行新增。
+        </p>
+        <p v-else>請先在基本資料選擇國家／地區及行程範例。</p>
+      </div>
+      <el-button
+        type="primary"
+        plain
+        :disabled="isBusy || savingAll || spotSaving || loadError || !days.length || !presetDays.length"
+        @click="applyPresetDays()"
+      >
+        一鍵填入每日行程
+      </el-button>
+    </section>
 
     <el-skeleton v-if="loading && days.length === 0" class="day-skeleton" :rows="8" animated aria-label="正在載入每日行程" />
     <el-alert
@@ -65,6 +80,16 @@
 
         <div class="day-card-header-actions">
           <el-tag v-if="isDayDirty(day)" type="warning" size="small">尚未儲存</el-tag>
+          <el-button
+            v-if="presetDays.some(preset => preset.dayNumber === day.dayNumber)"
+            type="primary"
+            plain
+            size="small"
+            :disabled="isBusy || savingAll || spotSaving || loadError"
+            @click="applyPresetDays(day)"
+          >
+            快速填入這一天
+          </el-button>
         </div>
 
         <el-form
@@ -917,26 +942,50 @@ const refreshAfterMutation = async (successMessage: string) => {
   emit("changed");
 };
 
-const applyPresetDays = async () => {
-  if (!props.presetDays?.length) return;
+const applyPresetDays = async (targetDay?: EditableTripDay) => {
+  if (isBusy.value || savingAll.value || spotSaving.value || loadError.value || !props.presetDays.length) return;
 
-  const hasExistingContent = days.value.some(day =>
-    Boolean(day.title || day.content || day.breakfast || day.lunch || day.dinner || day.hotel || day.transportation || day.note)
+  const targetDays = (targetDay ? [targetDay] : days.value).filter(day =>
+    props.presetDays.some(preset => preset.dayNumber === day.dayNumber)
+  );
+  if (!targetDays.length) {
+    ElMessage.warning("目前範例沒有對應天數的行程資料");
+    return;
+  }
+  const hasExistingContent = targetDays.some(day =>
+    Boolean(
+      day.title ||
+      day.content ||
+      day.breakfast ||
+      day.lunch ||
+      day.dinner ||
+      day.hotel ||
+      day.transportation ||
+      day.note ||
+      day.extraFee ||
+      day.extraFeeDescription
+    )
   );
 
   if (hasExistingContent) {
     try {
-      await ElMessageBox.confirm("快速產生會覆蓋目前尚未儲存的每日文字資料，確定繼續嗎？", "套用每日行程範例", {
-        type: "warning",
-        confirmButtonText: "確定套用",
-        cancelButtonText: "取消"
-      });
+      await ElMessageBox.confirm(
+        `將覆蓋${targetDay ? `第 ${targetDay.dayNumber} 天` : "範例對應天數"}的文字與費用欄位，景點及照片會保留。套用後需儲存才會生效，確定繼續嗎？`,
+        "套用每日行程範例",
+        {
+          type: "warning",
+          confirmButtonText: "確定套用",
+          cancelButtonText: "取消"
+        }
+      );
     } catch {
       return;
     }
   }
 
-  for (const day of days.value) {
+  if (isBusy.value || savingAll.value || spotSaving.value || loadError.value || disposed) return;
+
+  for (const day of targetDays) {
     const preset = props.presetDays.find(item => item.dayNumber === day.dayNumber);
     if (!preset) continue;
     Object.assign(day, {
@@ -953,8 +1002,8 @@ const applyPresetDays = async () => {
     });
   }
 
-  expandedDays.value = days.value.map(day => day.key);
-  ElMessage.success(`已產生「${props.presetLabel || "通用範例"}」每日行程`);
+  expandedDays.value = [...new Set([...expandedDays.value, ...targetDays.map(day => day.key)])];
+  ElMessage.success(`已填入 ${targetDays.length} 天行程，請確認內容後儲存`);
 };
 
 const saveDay = async (day: EditableTripDay, refresh = true): Promise<boolean> => {
@@ -1131,6 +1180,23 @@ onBeforeUnmount(() => {
 .day-section-actions {
   flex-shrink: 0;
   gap: 8px;
+}
+.day-preset-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: var(--el-color-primary-light-9);
+  border: 1px solid var(--el-color-primary-light-7);
+  border-radius: var(--el-border-radius-base);
+}
+.day-preset-panel p {
+  margin: 4px 0 0;
+  line-height: 1.6;
+  color: var(--el-text-color-secondary);
 }
 .day-skeleton {
   padding: 8px 0 16px;
