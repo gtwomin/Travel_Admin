@@ -384,7 +384,8 @@ export namespace AdminTrip {
     | "MACAU";
   export type TripBookingMode = "FIXED_DEPARTURE" | "FLEXIBLE_DATE";
   export type TripProductType = "PACKAGE_TOUR" | "PRIVATE_GROUP" | "CHARTER_TOUR";
-  export type SpotTag = "ATTRACTION" | "FOOD" | "HOTEL" | "TRANSPORTATION" | "GUIDE" | "TICKET" | "SHOPPING" | "FREE_TIME";
+  export type SpotTag =
+    "ATTRACTION" | "FOOD" | "HOTEL" | "TRANSPORTATION" | "GUIDE" | "TICKET" | "SHOPPING" | "FREE_TIME" | "EXPERIENCE";
 
   export interface TripListResponse {
     id: number;

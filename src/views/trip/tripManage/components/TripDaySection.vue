@@ -487,6 +487,10 @@ const spotTagOptions: Array<{
   {
     label: "自由活動",
     value: "FREE_TIME"
+  },
+  {
+    label: "文化體驗",
+    value: "EXPERIENCE"
   }
 ];
 
